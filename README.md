@@ -17,6 +17,23 @@ REPO=/path/to/repo PORT=5000 node server.js
 # http://127.0.0.1:4317/?repo=/path/to/repo
 ```
 
+## 테스트
+
+```bash
+npm test
+```
+
+Node 내장 테스트 러너(`node --test`)를 쓴다. 추가 패키지는 필요 없다.
+
+## 모듈로 사용
+
+```js
+const { start } = require('./server.js');
+const app = await start({ port: 0 }); // 0이면 빈 포트 자동 배정
+console.log(app.url);
+await app.close();
+```
+
 ## API
 
 | 엔드포인트 | 설명 |

@@ -15,11 +15,12 @@
 
 | 파일 | 역할 | 줄 수 |
 |---|---|---|
-| `server.js` | HTTP 서버, 라우팅, git 실행·파싱, 정적 파일 서빙 | 164 |
+| `server.js` | HTTP 서버, 라우팅, git 실행·파싱, 정적 파일 서빙. 단독 실행과 모듈(`start()`) 겸용 | 202 |
 | `public/index.html` | 4영역 레이아웃 골격 | 59 |
 | `public/app.js` | 클라이언트 상태, API 호출, 그래프 레이아웃·렌더링, 이벤트 | 261 |
 | `public/style.css` | 디자인 토큰과 레이아웃 스타일 | 105 |
-| `package.json` | 메타데이터, `start` 스크립트, `bin` 등록 | — |
+| `test/server.test.js` | 서버 모듈 테스트(`node:test`, 의존성 없음) | — |
+| `package.json` | 메타데이터, `start`·`test` 스크립트, `main`·`bin` 등록 | — |
 
 빌드 단계가 없다. 브라우저는 `public/` 파일을 그대로 받는다.
 
@@ -36,14 +37,17 @@
 
 ```bash
 node server.js        # 또는 npm start
+npm test              # 테스트 (node --test)
 ```
+
+다른 Node 코드에서 `require('./server.js').start({ port: 0 })`로 띄울 수도 있다. 자세한 내용은 [server-runtime](../01-backend/server-runtime.md#startopts--모듈-api).
 
 | 설정 | 방법 | 기본값 | 근거 |
 |---|---|---|---|
 | 포트 | 환경변수 `PORT` | `4317` | `server.js:9` |
 | 기본 대상 레포 | 환경변수 `REPO` | 서버 실행 디렉터리(`process.cwd()`) | `server.js:11` |
-| 요청별 대상 레포 | 쿼리 `?repo=<경로>` (페이지 URL과 API 모두) | 기본 대상 레포 | `server.js:140`, `public/app.js:13-22` |
-| 바인딩 주소 | 고정 | `127.0.0.1` | `server.js:161` |
+| 요청별 대상 레포 | 쿼리 `?repo=<경로>` (페이지 URL과 API 모두) | 기본 대상 레포 | `server.js:141`, `public/app.js:13-22` |
+| 바인딩 주소 | 고정 | `127.0.0.1` | `server.js:176` |
 
 기동 시 콘솔에 접속 URL과 기본 레포 경로를 출력한다.
 

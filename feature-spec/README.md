@@ -41,7 +41,7 @@ Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다
   - [security.md](./05-quality/security.md) — 보안 모델과 방어 장치
   - [constraints-and-known-issues.md](./05-quality/constraints-and-known-issues.md) — 제약, 알려진 이슈, 향후 과제
 - 06-roadmap
-  - [electron-desktop-app.md](./06-roadmap/electron-desktop-app.md) — [계획] Electron 단일 데스크톱 앱 패키징
+  - [electron-desktop-app.md](./06-roadmap/electron-desktop-app.md) — [진행 중, M1 완료] Electron 단일 데스크톱 앱 패키징
 
 ## 작성 규칙
 

@@ -8,11 +8,11 @@ Gitdonaldo는 **개발자 본인의 로컬 머신에서 본인이 쓰는 도구*
 
 | 위협 | 대책 | 근거 |
 |---|---|---|
-| 외부 네트워크 접근 | `127.0.0.1`에만 바인딩 | `server.js:161` |
+| 외부 네트워크 접근 | `127.0.0.1`에만 바인딩 | `server.js:176` |
 | 저장소 변경 | 읽기 전용 git 명령만 호출(`rev-parse`, `for-each-ref`, `log`, `status`, `show`) | `server.js` 전체 |
 | 셸 명령 주입 | `execFile`에 인자 배열 전달, 셸 미경유 | `server.js:18` |
 | git 옵션 주입(해시 자리) | 해시를 `/^[0-9a-fA-F]{4,40}$/`로 검증. `-`로 시작하는 값이 들어갈 수 없다 | `server.js:103` |
-| `limit` 남용 | 최대 2000으로 제한 | `server.js:149` |
+| `limit` 남용 | 최대 2000으로 제한 | `server.js:151` |
 | 정적 파일 경로 탈출 | 정규화한 경로가 `public/` 밖이면 403 | `server.js:126-127` |
 | 큰 출력으로 인한 메모리 고갈 | `maxBuffer` 64 MiB | `server.js:16` |
 | 화면 XSS | 사용자 통제 문자열은 `escapeHtml` 또는 `textContent`로 삽입 | `public/app.js:189-192`, `renderList`, `renderRefs` |

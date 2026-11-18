@@ -58,5 +58,5 @@ v0.1.0(커밋 `f042d13`) 코드 검토와 실제 API 호출로 확인한 내용�
 - `Content-Security-Policy`, `X-Content-Type-Options: nosniff` 헤더 추가
 
 ### 품질
-- 테스트 없음 → `layout()` 단위 테스트(머지·분기·합류 케이스), API 통합 테스트 추가
+- 서버 모듈 테스트는 있음(`test/server.test.js`). `layout()` 단위 테스트(머지·분기·합류 케이스)와 엔드포인트별 응답 테스트는 아직 없음
 - 그래프 상수의 단일 출처화(CSS 변수를 JS에서 읽거나 그 반대)

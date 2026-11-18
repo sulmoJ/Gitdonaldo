@@ -132,33 +132,71 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
-  const u = new URL(req.url, `http://localhost:${PORT}`);
-  const p = u.pathname;
-  if (!p.startsWith('/api/')) return serveStatic(req, res, p);
+function createHandler({ defaultRepo }) {
+  return async (req, res) => {
+    const u = new URL(req.url, 'http://127.0.0.1');
+    const p = u.pathname;
+    if (!p.startsWith('/api/')) return serveStatic(req, res, p);
 
-  const repo = u.searchParams.get('repo') || DEFAULT_REPO;
-  try {
-    if (p === '/api/health') return sendJSON(res, 200, { ok: true });
-    if (!(await isRepo(repo))) return sendJSON(res, 400, { error: `not a git repo: ${repo}` });
+    const repo = u.searchParams.get('repo') || defaultRepo;
+    try {
+      if (p === '/api/health') return sendJSON(res, 200, { ok: true });
+      if (!repo) return sendJSON(res, 400, { error: 'no repo selected' });
+      if (!(await isRepo(repo))) return sendJSON(res, 400, { error: `not a git repo: ${repo}` });
 
-    if (p === '/api/repo') return sendJSON(res, 200, await apiRepo(repo));
-    if (p === '/api/refs') return sendJSON(res, 200, await apiRefs(repo));
-    if (p === '/api/status') return sendJSON(res, 200, await apiStatus(repo));
-    if (p === '/api/commits') {
-      const limit = Math.min(Number(u.searchParams.get('limit')) || 300, 2000);
-      return sendJSON(res, 200, await apiCommits(repo, limit));
+      if (p === '/api/repo') return sendJSON(res, 200, await apiRepo(repo));
+      if (p === '/api/refs') return sendJSON(res, 200, await apiRefs(repo));
+      if (p === '/api/status') return sendJSON(res, 200, await apiStatus(repo));
+      if (p === '/api/commits') {
+        const limit = Math.min(Number(u.searchParams.get('limit')) || 300, 2000);
+        return sendJSON(res, 200, await apiCommits(repo, limit));
+      }
+      if (p === '/api/commit') {
+        return sendJSON(res, 200, await apiCommit(repo, u.searchParams.get('hash') || ''));
+      }
+      return sendJSON(res, 404, { error: 'unknown endpoint' });
+    } catch (e) {
+      return sendJSON(res, 500, { error: e.message, stderr: e.stderr });
     }
-    if (p === '/api/commit') {
-      return sendJSON(res, 200, await apiCommit(repo, u.searchParams.get('hash') || ''));
-    }
-    return sendJSON(res, 404, { error: 'unknown endpoint' });
-  } catch (e) {
-    return sendJSON(res, 500, { error: e.message, stderr: e.stderr });
-  }
-});
+  };
+}
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[Gitdonaldo] git engine ready -> http://127.0.0.1:${PORT}`);
-  console.log(`[Gitdonaldo] default repo: ${DEFAULT_REPO}`);
-});
+/**
+ * Start the HTTP server on 127.0.0.1.
+ * @param {object} [opts]
+ * @param {number} [opts.port=0]  0 lets the OS pick a free port.
+ * @param {string|null} [opts.defaultRepo]  Repo used when a request has no ?repo=.
+ *   Defaults to $REPO or cwd; pass null to require ?repo= on every API call.
+ * @returns {Promise<{ port: number, url: string, server: http.Server, close: () => Promise<void> }>}
+ */
+function start({ port = 0, defaultRepo = DEFAULT_REPO } = {}) {
+  const server = http.createServer(createHandler({ defaultRepo }));
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => {
+      server.off('error', reject);
+      const actual = server.address().port;
+      resolve({
+        port: actual,
+        url: `http://127.0.0.1:${actual}`,
+        server,
+        close: () => new Promise((done) => {
+          server.close(() => done());
+          if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+        }),
+      });
+    });
+  });
+}
+
+module.exports = { start, createHandler, apiRepo, apiRefs, apiCommits, apiStatus, apiCommit, isRepo };
+
+if (require.main === module) {
+  start({ port: PORT, defaultRepo: DEFAULT_REPO }).then(({ url }) => {
+    console.log(`[Gitdonaldo] git engine ready -> ${url}`);
+    console.log(`[Gitdonaldo] default repo: ${DEFAULT_REPO}`);
+  }).catch((e) => {
+    console.error(`[Gitdonaldo] failed to start: ${e.code === 'EADDRINUSE' ? `port ${PORT} is already in use` : e.message}`);
+    process.exit(1);
+  });
+}

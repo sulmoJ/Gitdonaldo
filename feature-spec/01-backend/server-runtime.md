@@ -2,22 +2,63 @@
 
 근거: `server.js` 전체. Node 코어 `http` 모듈로 만든 단일 프로세스 서버다.
 
-## 기동
+## 기동 방식
 
-- `server.listen(PORT, '127.0.0.1')` — 루프백 주소에만 바인딩한다 (`server.js:161`).
+`server.js`는 두 가지로 쓸 수 있다.
+
+| 방식 | 사용처 | 포트 | 기본 레포 |
+|---|---|---|---|
+| 단독 실행 `node server.js` | 브라우저 모드 | `PORT` 환경변수, 없으면 4317 | `REPO` 환경변수, 없으면 실행 디렉터리 |
+| 모듈 `require('./server.js').start(opts)` | Electron 메인 프로세스(예정), 테스트 | `opts.port`, 기본 0(OS가 빈 포트 배정) | `opts.defaultRepo` |
+
+- 단독 실행 여부는 `require.main === module`로 판별한다 (`server.js:194`). `require`로 불러오기만 하면 서버가 뜨지 않는다.
+- 어느 방식이든 `127.0.0.1`에만 바인딩한다 (`server.js:176`).
 - `PORT`는 `Number(process.env.PORT) || 4317` (`server.js:9`). 숫자가 아니거나 0이면 4317.
 - `DEFAULT_REPO`는 `process.env.REPO || process.cwd()` (`server.js:11`).
 - `PUBLIC_DIR`는 `server.js`가 있는 디렉터리의 `public/` (`server.js:10`). 서버를 어느 디렉터리에서 실행해도 정적 파일 위치는 같다.
 
+### `start(opts)` — 모듈 API
+
+`server.js:172-190`
+
+```js
+const { start } = require('./server.js');
+const app = await start({ port: 0, defaultRepo: null });
+// app.port   실제 배정된 포트
+// app.url    'http://127.0.0.1:<port>'
+// app.server http.Server 인스턴스
+await app.close(); // 열린 연결까지 닫고 resolve
+```
+
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `port` | `0` | 0이면 OS가 빈 포트를 배정한다. 여러 인스턴스를 동시에 띄워도 충돌하지 않는다 |
+| `defaultRepo` | `DEFAULT_REPO` | 요청에 `?repo=`가 없을 때 쓸 레포. `null`이면 기본 레포 없음 → `?repo=` 없는 API 요청은 400 `no repo selected` |
+
+- 반환: listen이 끝나면 resolve하는 Promise.
+- 포트가 이미 쓰이고 있으면 `code: 'EADDRINUSE'` 에러로 reject한다.
+- `close()`는 `server.close()`와 함께 `closeAllConnections()`(Node 18.2+)를 불러 keep-alive 연결 때문에 종료가 늦어지지 않게 한다.
+- 같은 모듈에서 `createHandler`, `isRepo`, `apiRepo`, `apiRefs`, `apiCommits`, `apiStatus`, `apiCommit`도 내보낸다. 나중에 IPC로 옮길 때(로드맵 안 B) 핸들러를 그대로 재사용하기 위해서다.
+
+### 단독 실행 시 로그
+
+```
+[Gitdonaldo] git engine ready -> http://127.0.0.1:4317
+[Gitdonaldo] default repo: /path/to/cwd
+```
+
+포트가 이미 쓰이고 있으면 `[Gitdonaldo] failed to start: port 4317 is already in use`를 출력하고 종료 코드 1로 끝난다.
+
 ## 요청 라우팅
 
-`http.createServer` 핸들러 하나가 모든 요청을 받는다 (`server.js:135-159`).
+`createHandler({ defaultRepo })`가 만든 핸들러 하나가 모든 요청을 받는다 (`server.js:135-162`).
 
 ```
 pathname이 /api/ 로 시작하지 않음 ──▶ serveStatic()
 pathname이 /api/ 로 시작함
-  ├─ repo = ?repo 값 || DEFAULT_REPO
+  ├─ repo = ?repo 값 || defaultRepo
   ├─ /api/health                ──▶ 200 {ok:true}        (레포 검사 전에 응답)
+  ├─ repo가 비어 있음            ──▶ 400 {error:'no repo selected'}
   ├─ isRepo(repo) 실패           ──▶ 400 {error}
   ├─ /api/repo | refs | status | commits | commit ──▶ 각 핸들러
   └─ 그 외                       ──▶ 404 {error:'unknown endpoint'}
@@ -57,6 +98,7 @@ pathname이 /api/ 로 시작함
 
 | 상황 | 상태 코드 | 본문 |
 |---|---|---|
+| `?repo=`도 기본 레포도 없음(`defaultRepo: null`) | 400 | `{ "error": "no repo selected" }` |
 | 대상 경로가 git 작업 트리가 아님(없는 경로 포함) | 400 | `{ "error": "not a git repo: <경로>" }` |
 | 알 수 없는 `/api/*` 경로 | 404 | `{ "error": "unknown endpoint" }` |
 | 핸들러 예외(git 실패, 잘못된 해시 등) | 500 | `{ "error": <메시지>, "stderr": <git stderr 또는 생략> }` |

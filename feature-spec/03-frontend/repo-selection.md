@@ -1,6 +1,6 @@
 # 대상 레포 지정과 새로고침
 
-근거: `public/app.js:13-22`, `public/app.js:257-261`, `server.js:11`, `server.js:140`
+근거: `public/app.js:13-22`, `public/app.js:257-261`, `server.js:11`, `server.js:141`
 
 ## 지정 방법과 우선순위
 

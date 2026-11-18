@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 계획(미구현) |
+| 상태 | 진행 중 — M1 완료 |
 | 작성일 | 2026-11-18 |
 | 기준 코드 | v0.1.0 (`f042d13`) |
 
@@ -55,6 +55,8 @@ A로 먼저 패키징하고, 보안 요구가 커지면 B로 옮긴다. API 핸�
 ### 4.1 `server.js` 모듈화
 - 서버 생성을 `start({ port, repo }) → Promise<{ port, close }>` 함수로 감싸 `module.exports`로 내보낸다.
 - `require.main === module`일 때만 지금처럼 바로 listen한다. `node server.js` 브라우저 모드는 계속 동작한다.
+- `defaultRepo: null`을 주면 기본 레포 없이 뜬다. `?repo=` 없는 API 요청은 400 `no repo selected`.
+- **구현됨(M1).** 실제 시그니처는 `start({ port, defaultRepo }) → Promise<{ port, url, server, close }>`.
 - Electron에서는 `port: 0`으로 띄워 OS가 비어 있는 포트를 주게 한다(4317 충돌 방지).
 
 ### 4.2 Electron 진입점 (`electron/main.js`)
@@ -134,7 +136,7 @@ Gitdonaldo/
 
 | 단계 | 작업 | 결과물 |
 |---|---|---|
-| M1 | `server.js` 모듈화, `port: 0` 지원 | 브라우저 모드 회귀 없음 |
+| M1 ✅ | `server.js` 모듈화, `port: 0` 지원 | 브라우저 모드 회귀 없음. [server-runtime](../01-backend/server-runtime.md#startopts--모듈-api)에 반영 |
 | M2 | Electron 진입점, preload, 폴더 열기 버튼 | `npm run app`으로 실행 |
 | M3 | 토큰·Host 검사·CSP 등 보안 항목 | 완료 기준의 403 확인 |
 | M4 | electron-builder 설정, 아이콘, 3개 OS 설치 파일 | `npm run dist` 산출물 |
