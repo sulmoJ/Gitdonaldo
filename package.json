@@ -1,17 +1,86 @@
 {
   "name": "gitdonaldo",
+  "productName": "Gitdonaldo",
   "version": "0.1.0",
-  "description": "Minimal read-only git client web app (Node core + system git, zero dependencies)",
+  "description": "Minimal read-only git client desktop app (Electron + system git)",
+  "author": "Gitdonaldo contributors",
+  "main": "electron/main.js",
+  "desktopName": "gitdonaldo.desktop",
   "bin": {
     "gitdonaldo": "server.js"
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "app": "electron .",
+    "test": "node --test",
+    "test:e2e": "node e2e/electron.e2e.js",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "engines": {
     "node": ">=18"
   },
   "license": "MIT",
-  "main": "server.js"
+  "devDependencies": {
+    "electron": "45.3.4",
+    "electron-builder": "26.18.0",
+    "playwright-core": "1.63.0"
+  },
+  "build": {
+    "appId": "io.gitdonaldo.app",
+    "productName": "Gitdonaldo",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "server.js",
+      "public/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Development",
+      "syncDesktopName": true,
+      "executableName": "gitdonaldo"
+    },
+    "publish": null
+  }
 }
