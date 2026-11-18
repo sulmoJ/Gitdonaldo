@@ -1,6 +1,6 @@
 # 커밋 그래프
 
-근거: `public/app.js:3-8`, `public/app.js:35-167`
+근거: `public/app.js:3-8`, `public/app.js:41-173`
 
 중앙 영역에 커밋을 한 행씩 나열하고, 왼쪽에 레인(lane) 그래프를 SVG로 겹쳐 그린다.
 

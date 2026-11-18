@@ -1,6 +1,6 @@
 # 사이드바: 작업 트리 상태와 ref 목록
 
-근거: `public/index.html:20-37`, `public/app.js:194-227`, `public/app.js:240-243`
+근거: `public/index.html:21-38`, `public/app.js:200-233`, `public/app.js:250-253`
 
 ## WORKING DIR
 

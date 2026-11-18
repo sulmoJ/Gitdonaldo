@@ -1,9 +1,25 @@
 # Gitdonaldo
 
-의존성 0개의 최소 read-only git 클라이언트 웹앱. Node 코어 + 시스템 `git`만 사용한다.
-커밋 그래프, 브랜치/태그, 커밋 상세를 브라우저에서 본다.
+최소 read-only git 클라이언트 데스크톱 앱. 런타임 의존성 0개, Node 코어 + 시스템 `git`만 사용한다.
+커밋 그래프, 브랜치/태그, 커밋 상세를 본다. 백엔드와 UI 모두 내 노트북 안에서만 돈다.
 
-## 실행
+기능 명세는 [`feature-spec/`](./feature-spec/README.md)에 있다.
+
+## 데스크톱 앱
+
+필요한 것: 시스템에 설치된 `git`. (설치 파일 사용자는 Node.js가 필요 없다.)
+
+```bash
+npm install          # 개발 도구(electron 등) 설치
+npm run app          # 개발 실행
+npm run dist         # 현재 OS용 설치 파일 → dist/  (dist:mac / dist:win / dist:linux)
+```
+
+- 실행하면 `📂 열기`(또는 `Ctrl/Cmd+O`)로 git 저장소 폴더를 고른다. 다음 실행 때 마지막 레포가 열린다.
+- 앱 내부 서버는 `127.0.0.1`의 임의 포트에 뜨고, 실행마다 바뀌는 토큰이 있어야 API에 접근할 수 있다.
+- git을 못 찾으면 안내 창이 뜬다. 다른 위치의 git은 설정 파일(`settings.json`)의 `gitPath`로 지정한다.
+
+## 브라우저 모드 (개발용)
 
 ```bash
 node server.js
@@ -14,22 +30,22 @@ node server.js
 
 ```bash
 REPO=/path/to/repo PORT=5000 node server.js
-# http://127.0.0.1:4317/?repo=/path/to/repo
+# http://127.0.0.1:5000/?repo=/path/to/repo
 ```
 
 ## 테스트
 
 ```bash
-npm test
+npm test                 # 서버 단위 테스트 (node --test)
+npm run test:e2e         # Electron E2E (Linux 헤드리스: xvfb-run -a npm run test:e2e)
+npm run test:e2e -- dist/linux-unpacked/gitdonaldo   # 패키지된 앱 검사
 ```
-
-Node 내장 테스트 러너(`node --test`)를 쓴다. 추가 패키지는 필요 없다.
 
 ## 모듈로 사용
 
 ```js
 const { start } = require('./server.js');
-const app = await start({ port: 0 }); // 0이면 빈 포트 자동 배정
+const app = await start({ port: 0 }); // 0이면 빈 포트 자동 배정. token 옵션으로 API 보호
 console.log(app.url);
 await app.close();
 ```
@@ -38,6 +54,7 @@ await app.close();
 
 | 엔드포인트 | 설명 |
 |---|---|
+| `GET /api/health` | 서버 생존 확인 |
 | `GET /api/repo` | 레포 이름·현재 브랜치·HEAD |
 | `GET /api/refs` | 로컬/원격 브랜치 + 태그 |
 | `GET /api/commits?limit=N` | `--all --topo-order` 커밋 목록 |

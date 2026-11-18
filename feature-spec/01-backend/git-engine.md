@@ -1,10 +1,10 @@
 # Git 실행 엔진
 
-근거: `server.js:13-114`. 서버는 git 라이브러리를 쓰지 않고 시스템 `git` CLI를 실행해 출력을 파싱한다.
+근거: `server.js:14-115`. 서버는 git 라이브러리를 쓰지 않고 시스템 `git` CLI를 실행해 출력을 파싱한다.
 
 ## 실행 래퍼 `git(repo, args)`
 
-`server.js:16-26`
+`server.js:17-27`
 
 - `execFile('git', ['-C', repo, ...args], { maxBuffer })`
   - `-C <repo>`로 대상 저장소를 지정한다. 서버 프로세스의 작업 디렉터리는 바꾸지 않는다.

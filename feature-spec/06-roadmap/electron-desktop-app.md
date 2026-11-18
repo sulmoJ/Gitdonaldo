@@ -2,9 +2,12 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 진행 중 — M1 완료 |
+| 상태 | **완료** — M1~M4 구현. 후속 과제만 남음 |
+| 구현 명세 | [architecture](../00-overview/architecture.md) · [desktop-shell](../01-backend/desktop-shell.md) · [server-runtime](../01-backend/server-runtime.md#요청-보안-검사) · [packaging](../00-overview/packaging.md) · [security](../05-quality/security.md) |
 | 작성일 | 2026-11-18 |
 | 기준 코드 | v0.1.0 (`f042d13`) |
+
+> 이 문서는 계획 당시의 설계 기록이다. 실제 동작은 위 "구현 명세" 문서가 기준이며, 계획과 달라진 점은 [11. 구현 결과](#11-구현-결과)에 적었다.
 
 ## 1. 목표
 
@@ -125,25 +128,43 @@ Gitdonaldo/
 
 ## 8. 완료 기준
 
-- [ ] Node.js가 없는 노트북에서 설치 파일로 설치하고 실행할 수 있다.
-- [ ] 폴더 선택으로 로컬 저장소를 열면 그래프·사이드바·상세가 기존과 똑같이 동작한다.
-- [ ] 앱을 다시 켜면 마지막 레포가 열린다.
-- [ ] git이 없으면 안내 후 종료한다.
-- [ ] 토큰 없는 외부 요청(예: `curl 127.0.0.1:<port>/api/repo`)은 403이다.
-- [ ] `node server.js` 브라우저 모드도 계속 동작한다.
+| 기준 | 결과 | 확인 방법 |
+|---|---|---|
+| Node.js가 없는 노트북에서 설치 파일로 설치하고 실행할 수 있다 | ✅ Linux / ⬜ macOS·Windows 미검증 | 패키지된 Linux 앱을 node 없는 PATH로 E2E, AppImage 직접 실행 |
+| 폴더 선택으로 로컬 저장소를 열면 그래프·사이드바·상세가 기존과 똑같이 동작한다 | ✅ | E2E (대화상자 스텁) |
+| 앱을 다시 켜면 마지막 레포가 열린다 | ✅ | E2E 재실행 |
+| git이 없으면 안내 후 종료한다 | ✅ | git을 숨기고 실행해 대화상자 화면 확인(수동) |
+| 토큰 없는 외부 요청은 403이다 | ✅ | E2E, 단위 테스트 |
+| `node server.js` 브라우저 모드도 계속 동작한다 | ✅ | 단위 테스트, Chromium 수동 확인 |
 
 ## 9. 단계 계획
 
 | 단계 | 작업 | 결과물 |
 |---|---|---|
-| M1 ✅ | `server.js` 모듈화, `port: 0` 지원 | 브라우저 모드 회귀 없음. [server-runtime](../01-backend/server-runtime.md#startopts--모듈-api)에 반영 |
-| M2 | Electron 진입점, preload, 폴더 열기 버튼 | `npm run app`으로 실행 |
-| M3 | 토큰·Host 검사·CSP 등 보안 항목 | 완료 기준의 403 확인 |
-| M4 | electron-builder 설정, 아이콘, 3개 OS 설치 파일 | `npm run dist` 산출물 |
-| 후속 | 코드 서명·공증, 자동 업데이트, IPC 전환(안 B) | — |
+| M1 ✅ | `server.js` 모듈화, `port: 0` 지원 | 브라우저 모드 회귀 없음. [server-runtime](../01-backend/server-runtime.md#startopts--모듈-api) |
+| M2 ✅ | Electron 진입점, preload, 폴더 열기 버튼 | `npm run app`. [desktop-shell](../01-backend/desktop-shell.md) |
+| M3 ✅ | 토큰·Host 검사·CSP 등 보안 항목 | [server-runtime](../01-backend/server-runtime.md#요청-보안-검사), [security](../05-quality/security.md) |
+| M4 ✅ | electron-builder 설정, 아이콘, 3개 OS 설치 파일 | 설정 완료, Linux AppImage 빌드·검증. [packaging](../00-overview/packaging.md) |
+| 후속 | macOS·Windows 빌드 검증, OS별 빌드 CI, 코드 서명·공증, 자동 업데이트, 정식 아이콘, IPC 전환(안 B) | — |
 
-## 10. 미정 사항
+## 10. 미정 사항 (여전히 열려 있음)
 
 - 배포 대상 OS 우선순위(사내 노트북이 macOS 위주인지)
 - 코드 서명 인증서 확보 여부
 - 앱 이름·아이콘 확정
+
+## 11. 구현 결과
+
+계획과 달라지거나 구체화된 점:
+
+| 항목 | 계획 | 구현 |
+|---|---|---|
+| 토큰 전달 | 창 URL에 넣고 API가 검사 | 창 URL `?token=` → `app.js`가 읽어 `x-gitdonaldo-token` **헤더**로 전송. 쿠키는 쓰지 않음(쿠키는 포트를 구분하지 않아 같은 노트북의 다른 로컬 서버로 새어 나갈 수 있음) |
+| 토큰 검사 범위 | API | `/api/*` 전부(`/api/health` 포함). 정적 파일은 토큰 없이 제공 |
+| Host 검사·보안 헤더 | 데스크톱 앱 | 브라우저 모드에도 적용(부작용 없음) |
+| 레포 미선택 상태 | "폴더를 여세요" 안내 | 데스크톱 첫 실행 시 API를 호출하지 않고 안내만 표시 |
+| git 경로 지정 | 설정에서 지정 가능하게 | `settings.json`의 `gitPath` (UI 없음, 오류 대화상자에서 안내) |
+| 테스트 | — | 서버 단위 테스트 11개, Electron E2E 16개 항목(`npm run test:e2e`). E2E용 `playwright-core`를 devDependency로 추가 |
+| 테스트 격리 | — | `GITDONALDO_USER_DATA` 환경변수로 userData 위치 변경 |
+| 패키지 메타데이터 | — | `author`, `desktopName`, `publish: null` 추가 |
+| Electron 버전 | — | `electron` 45.3.4, `electron-builder` 26.18.0 (정확한 버전 고정) |

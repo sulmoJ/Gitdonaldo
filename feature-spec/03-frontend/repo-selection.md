@@ -1,17 +1,34 @@
 # 대상 레포 지정과 새로고침
 
-근거: `public/app.js:13-22`, `public/app.js:257-261`, `server.js:11`, `server.js:141`
+근거: `public/app.js:13-28`, `public/app.js:270-283`, `server.js:12`, `server.js:179`
 
 ## 지정 방법과 우선순위
 
 | 우선순위 | 방법 | 범위 | 유지 |
 |---|---|---|---|
-| 1 | 상단 입력창에 경로 입력 후 Enter | 현재 탭 | 새로고침(F5)하면 사라짐 |
+| 1 | **[데스크톱]** `📂 열기` 버튼 또는 메뉴 File → Open Repository… (`Ctrl/Cmd+O`) | 앱 | 다음 실행 때 자동으로 다시 열림 |
+| 1 | 상단 입력창에 경로 입력 후 Enter | 현재 창 | 브라우저 모드: 새로고침하면 사라짐. 데스크톱: 다음 실행 때 다시 열림 |
 | 2 | 페이지 URL 쿼리 `/?repo=/path/to/repo` | 해당 URL | URL을 북마크·공유 가능 |
 | 3 | 서버 환경변수 `REPO` | 서버 전체 기본값 | 서버 재시작 전까지 |
 | 4 | 서버 실행 디렉터리 | 서버 전체 기본값 | — |
 
 1·2는 클라이언트가 API 호출에 `repo` 쿼리를 붙여 서버에 넘기고, 3·4는 쿼리가 없을 때 서버가 고른다.
+데스크톱 앱은 3·4를 쓰지 않는다(`defaultRepo: null`). 대신 마지막으로 연 레포를 창 URL의 `?repo=`로 넘겨 2번 경로로 연다.
+
+## 폴더 열기 (데스크톱 앱 전용)
+
+근거: `public/app.js:271-279`, `electron/preload.js`, `electron/main.js` `registerIpc`
+
+- `window.gitdonaldo`가 있을 때만 `#openBtn`(`📂 열기`)을 보인다. 브라우저 모드에서는 `hidden`.
+- 버튼이나 메뉴(`Ctrl/Cmd+O`)를 누르면 OS 폴더 선택 대화상자가 열린다.
+- 폴더를 고르면 `state.repoPath`에 넣고 `load()`. 취소하면 아무 일도 없다.
+- 고른 폴더가 git 저장소가 아니면 일반 경로 입력과 똑같이 빨간 에러를 보인다.
+- 로딩에 성공할 때마다 `desktop.rememberRepo(repo.path)`로 메인 프로세스에 알려 `settings.json`의 `lastRepo`에 저장한다. 버튼·입력창 어느 쪽으로 열었든 저장된다.
+
+## 레포를 아직 고르지 않았을 때
+
+- 데스크톱 앱 첫 실행(또는 저장된 레포 폴더가 사라졌을 때): API를 호출하지 않고 상단에 `📂 열기 버튼으로 git 저장소 폴더를 선택하세요`(파란 글씨)를 보인다.
+- 브라우저 모드에서 서버가 `no repo selected`를 돌려주면 `repo 경로를 입력하세요`를 보인다.
 
 ## 경로 입력창 `#repoInput`
 

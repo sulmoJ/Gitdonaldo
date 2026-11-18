@@ -1,6 +1,6 @@
 # 커밋 상세 패널
 
-근거: `public/app.js:169-192`, `public/style.css` `#detail` 이하
+근거: `public/app.js:175-198`, `public/style.css` `#detail` 이하
 
 ## 동작
 

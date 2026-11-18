@@ -1,6 +1,6 @@
 # Gitdonaldo Feature Spec
 
-Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다.
+Gitdonaldo의 현재 구현(v0.1.0, Electron 데스크톱 앱 포함) 기준 기능 명세서다.
 00~05는 코드에 실제로 구현된 동작만 적는다. 구현과 문서가 어긋나거나 아직 없는 기능은 [05-quality](./05-quality/)에, 확정된 다음 구현 방향은 [06-roadmap](./06-roadmap/)에 따로 모았다.
 
 ## 폴더 구성 기준
@@ -10,8 +10,8 @@ Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다
 
 | 폴더 | 무엇을 다루나 | 기준 |
 |---|---|---|
-| [00-overview](./00-overview/) | 제품 목적, 범위, 전체 아키텍처, 실행 방법 | 전체 그림. 처음 읽는 사람용 |
-| [01-backend](./01-backend/) | Node 서버 런타임, git 실행 엔진 | `server.js` 내부 동작 |
+| [00-overview](./00-overview/) | 제품 목적, 범위, 전체 아키텍처, 실행 방법, 패키징 | 전체 그림. 처음 읽는 사람용 |
+| [01-backend](./01-backend/) | Node 서버 런타임, git 실행 엔진, 백엔드를 호스팅하는 Electron 메인 프로세스 | `server.js`, `electron/` 내부 동작 |
 | [02-api](./02-api/) | HTTP API 계약(요청·응답·에러) | 백엔드와 프론트엔드의 경계. 둘 다 이 계약에 맞춘다 |
 | [03-frontend](./03-frontend/) | 화면 기능 단위 명세(레이아웃, 그래프, 사이드바, 상세, 레포 선택) | `public/app.js`·`index.html`. 사용자가 보는 기능 하나당 문서 하나 |
 | [04-design](./04-design/) | 색상·크기 토큰, 시각 규칙 | `public/style.css`. 여러 화면에 걸친 시각 규칙 |
@@ -22,10 +22,12 @@ Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다
 
 - 00-overview
   - [product-overview.md](./00-overview/product-overview.md) — 목적, 범위, 비목표
-  - [architecture.md](./00-overview/architecture.md) — 구성 요소, 데이터 흐름, 실행·설정
+  - [architecture.md](./00-overview/architecture.md) — 실행 모드(데스크톱/브라우저), 구성 요소, 데이터 흐름, 실행·설정
+  - [packaging.md](./00-overview/packaging.md) — 설치 파일 빌드, electron-builder 설정, 검증 상태
 - 01-backend
-  - [server-runtime.md](./01-backend/server-runtime.md) — HTTP 서버, 라우팅, 정적 파일, 에러 처리
+  - [server-runtime.md](./01-backend/server-runtime.md) — HTTP 서버, `start()` 모듈 API, 보안 검사, 라우팅, 정적 파일, 에러 처리
   - [git-engine.md](./01-backend/git-engine.md) — git 호출 방식, 명령별 파싱 규칙
+  - [desktop-shell.md](./01-backend/desktop-shell.md) — Electron 메인 프로세스: 기동, 창, 메뉴, preload 브리지, IPC, 설정, 하드닝
 - 02-api
   - [api-conventions.md](./02-api/api-conventions.md) — 공통 규약(파라미터, 응답, 에러 코드)
   - [api-endpoints.md](./02-api/api-endpoints.md) — 엔드포인트별 명세
@@ -41,7 +43,7 @@ Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다
   - [security.md](./05-quality/security.md) — 보안 모델과 방어 장치
   - [constraints-and-known-issues.md](./05-quality/constraints-and-known-issues.md) — 제약, 알려진 이슈, 향후 과제
 - 06-roadmap
-  - [electron-desktop-app.md](./06-roadmap/electron-desktop-app.md) — [진행 중, M1 완료] Electron 단일 데스크톱 앱 패키징
+  - [electron-desktop-app.md](./06-roadmap/electron-desktop-app.md) — [완료] Electron 단일 데스크톱 앱 패키징 (설계 기록과 후속 과제)
 
 ## 작성 규칙
 
