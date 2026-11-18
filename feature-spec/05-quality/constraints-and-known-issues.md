@@ -34,7 +34,7 @@ v0.1.0(커밋 `f042d13`) 코드 검토와 실제 API 호출로 확인한 내용�
 
 ## 향후 과제 (제안)
 
-우선순위는 제안이며 확정되지 않았다.
+우선순위는 제안이며 확정되지 않았다. 확정된 다음 방향(Electron 데스크톱 앱)은 [06-roadmap/electron-desktop-app.md](../06-roadmap/electron-desktop-app.md)에 있다.
 
 ### 버그 수정
 - 주석 태그 peel: 포맷에 `%(*objectname)`을 추가하고, 값이 있으면 그 해시로 매칭 (#1)

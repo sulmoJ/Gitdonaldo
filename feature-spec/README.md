@@ -1,7 +1,7 @@
 # Gitdonaldo Feature Spec
 
 Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다.
-코드에 실제로 구현된 동작만 적고, 구현과 문서가 어긋나거나 아직 없는 기능은 [05-quality](./05-quality/)에 따로 모았다.
+00~05는 코드에 실제로 구현된 동작만 적는다. 구현과 문서가 어긋나거나 아직 없는 기능은 [05-quality](./05-quality/)에, 확정된 다음 구현 방향은 [06-roadmap](./06-roadmap/)에 따로 모았다.
 
 ## 폴더 구성 기준
 
@@ -16,6 +16,7 @@ Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다
 | [03-frontend](./03-frontend/) | 화면 기능 단위 명세(레이아웃, 그래프, 사이드바, 상세, 레포 선택) | `public/app.js`·`index.html`. 사용자가 보는 기능 하나당 문서 하나 |
 | [04-design](./04-design/) | 색상·크기 토큰, 시각 규칙 | `public/style.css`. 여러 화면에 걸친 시각 규칙 |
 | [05-quality](./05-quality/) | 보안, 제약, 알려진 이슈, 향후 과제 | 비기능 요구사항. 특정 계층에 속하지 않는 것 |
+| [06-roadmap](./06-roadmap/) | 다음에 구현할 기능의 계획 스펙 | 아직 코드에 없는 것. 구현되면 해당 계층 폴더로 내용을 옮긴다 |
 
 ## 문서 목록
 
@@ -39,9 +40,12 @@ Gitdonaldo의 현재 구현(커밋 `f042d13`, v0.1.0) 기준 기능 명세서다
 - 05-quality
   - [security.md](./05-quality/security.md) — 보안 모델과 방어 장치
   - [constraints-and-known-issues.md](./05-quality/constraints-and-known-issues.md) — 제약, 알려진 이슈, 향후 과제
+- 06-roadmap
+  - [electron-desktop-app.md](./06-roadmap/electron-desktop-app.md) — [계획] Electron 단일 데스크톱 앱 패키징
 
 ## 작성 규칙
 
 - 근거 코드 위치를 `파일:줄` 형식으로 적는다. 코드가 바뀌면 같은 PR에서 문서도 고친다.
-- "구현됨"과 "계획/제안"을 섞지 않는다. 계획은 05-quality의 향후 과제에만 적는다.
+- "구현됨"과 "계획/제안"을 섞지 않는다. 확정된 다음 구현 방향은 06-roadmap에, 아이디어 수준의 제안은 05-quality의 향후 과제에 적는다.
+- 06-roadmap 문서는 맨 위에 상태(계획/진행 중/완료)를 적는다.
 - 새 화면 기능은 03-frontend에 문서를 하나 추가하고, 새 엔드포인트는 02-api/api-endpoints.md에 절을 추가한다.
