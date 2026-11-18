@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const crypto = require('crypto');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -116,6 +117,25 @@ async function apiCommit(repo, hash) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
+// Applied to every response. The UI uses no inline scripts or inline style attributes.
+const SECURITY_HEADERS = {
+  'content-security-policy': [
+    "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data:",
+    "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'", "form-action 'none'",
+  ].join('; '),
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+  'cross-origin-resource-policy': 'same-origin',
+};
+
+const TOKEN_HEADER = 'x-gitdonaldo-token';
+
+function safeEqual(a, b) {
+  const ab = Buffer.from(String(a || ''));
+  const bb = Buffer.from(String(b || ''));
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
 function sendJSON(res, code, obj) {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(obj));
@@ -132,11 +152,29 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-function createHandler({ defaultRepo }) {
+/**
+ * @param {object} opts
+ * @param {string|null} opts.defaultRepo
+ * @param {string|null} [opts.token]  When set, every /api/* request must send it in the x-gitdonaldo-token header.
+ * @param {() => Set<string>} [opts.allowedHosts]  Accepted Host header values (blocks DNS rebinding). Empty/absent = no check.
+ */
+function createHandler({ defaultRepo, token = null, allowedHosts = null }) {
   return async (req, res) => {
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
+
+    const hosts = allowedHosts ? allowedHosts() : null;
+    if (hosts && hosts.size && !hosts.has(String(req.headers.host || '').toLowerCase())) {
+      res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+      return res.end('forbidden host');
+    }
+
     const u = new URL(req.url, 'http://127.0.0.1');
     const p = u.pathname;
     if (!p.startsWith('/api/')) return serveStatic(req, res, p);
+
+    if (token && !safeEqual(req.headers[TOKEN_HEADER], token)) {
+      return sendJSON(res, 403, { error: 'forbidden' });
+    }
 
     const repo = u.searchParams.get('repo') || defaultRepo;
     try {
@@ -167,15 +205,19 @@ function createHandler({ defaultRepo }) {
  * @param {number} [opts.port=0]  0 lets the OS pick a free port.
  * @param {string|null} [opts.defaultRepo]  Repo used when a request has no ?repo=.
  *   Defaults to $REPO or cwd; pass null to require ?repo= on every API call.
+ * @param {string|null} [opts.token]  Require this token on /api/* (header x-gitdonaldo-token).
  * @returns {Promise<{ port: number, url: string, server: http.Server, close: () => Promise<void> }>}
  */
-function start({ port = 0, defaultRepo = DEFAULT_REPO } = {}) {
-  const server = http.createServer(createHandler({ defaultRepo }));
+function start({ port = 0, defaultRepo = DEFAULT_REPO, token = null } = {}) {
+  const hosts = new Set();
+  const server = http.createServer(createHandler({ defaultRepo, token, allowedHosts: () => hosts }));
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => {
       server.off('error', reject);
       const actual = server.address().port;
+      hosts.add(`127.0.0.1:${actual}`);
+      hosts.add(`localhost:${actual}`);
       resolve({
         port: actual,
         url: `http://127.0.0.1:${actual}`,
@@ -189,7 +231,7 @@ function start({ port = 0, defaultRepo = DEFAULT_REPO } = {}) {
   });
 }
 
-module.exports = { start, createHandler, apiRepo, apiRefs, apiCommits, apiStatus, apiCommit, isRepo };
+module.exports = { start, createHandler, TOKEN_HEADER, apiRepo, apiRefs, apiCommits, apiStatus, apiCommit, isRepo };
 
 if (require.main === module) {
   start({ port: PORT, defaultRepo: DEFAULT_REPO }).then(({ url }) => {

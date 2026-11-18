@@ -15,6 +15,7 @@
   font-synthesis: none;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg);
@@ -44,6 +45,13 @@ body {
   border-radius: 6px; width: 32px; cursor: pointer; font-size: 15px;
 }
 #refreshBtn:hover { border-color: var(--accent); color: var(--accent); }
+#openBtn {
+  background: var(--bg3); border: 1px solid var(--line); color: var(--fg);
+  border-radius: 6px; padding: 0 10px; cursor: pointer; font-size: 12px; white-space: nowrap;
+}
+#openBtn:hover { border-color: var(--accent); color: var(--accent); }
+.repoinfo .error { color: #f0768b; }
+.repoinfo .hint { color: var(--accent); }
 
 #layout { flex: 1 1 auto; display: grid; grid-template-columns: 230px 1fr 320px; min-height: 0; }
 #sidebar { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 6px 0 20px; }

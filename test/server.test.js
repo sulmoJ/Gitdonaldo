@@ -96,3 +96,67 @@ test('`node server.js` still listens on PORT (browser mode)', async (t) => {
   const info = await getJSON(`http://127.0.0.1:${port}/api/repo`);
   assert.strictEqual(info.body.name, path.basename(repo));
 });
+
+// ---- security (Electron M3) ------------------------------------------------------------
+
+const http = require('node:http');
+
+function rawGet(port, pathName, headers = {}) {
+  return new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port, path: pathName, headers }, (res) => {
+      let body = '';
+      res.on('data', (d) => { body += d; });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+    }).on('error', reject);
+  });
+}
+
+test('token: /api/* requires x-gitdonaldo-token when start({token})', async (t) => {
+  const repo = makeRepo();
+  const app = await start({ port: 0, defaultRepo: repo, token: 'secret-token' });
+  t.after(() => app.close());
+
+  assert.strictEqual((await rawGet(app.port, '/api/repo')).status, 403);
+  assert.strictEqual((await rawGet(app.port, '/api/health')).status, 403);
+  assert.strictEqual((await rawGet(app.port, '/api/repo', { 'x-gitdonaldo-token': 'wrong' })).status, 403);
+  assert.strictEqual((await rawGet(app.port, '/api/repo', { 'x-gitdonaldo-token': 'secret-token' })).status, 200);
+  // static UI is still served without the token
+  assert.strictEqual((await rawGet(app.port, '/')).status, 200);
+});
+
+test('token: not required when start() has no token (browser mode)', async (t) => {
+  const repo = makeRepo();
+  const app = await start({ port: 0, defaultRepo: repo });
+  t.after(() => app.close());
+  assert.strictEqual((await rawGet(app.port, '/api/repo')).status, 200);
+});
+
+test('host check: only 127.0.0.1:<port> and localhost:<port> are accepted', async (t) => {
+  const app = await start({ port: 0 });
+  t.after(() => app.close());
+
+  assert.strictEqual((await rawGet(app.port, '/', { host: `127.0.0.1:${app.port}` })).status, 200);
+  assert.strictEqual((await rawGet(app.port, '/', { host: `localhost:${app.port}` })).status, 200);
+  assert.strictEqual((await rawGet(app.port, '/', { host: `evil.example:${app.port}` })).status, 403);
+  assert.strictEqual((await rawGet(app.port, '/api/health', { host: 'evil.example' })).status, 403);
+});
+
+test('security headers are sent on every response', async (t) => {
+  const app = await start({ port: 0 });
+  t.after(() => app.close());
+
+  for (const p of ['/', '/app.js', '/api/health', '/missing']) {
+    const { headers } = await rawGet(app.port, p);
+    assert.match(headers['content-security-policy'], /default-src 'self'/, p);
+    assert.strictEqual(headers['x-content-type-options'], 'nosniff', p);
+  }
+});
+
+test('UI has no inline scripts or inline style attributes (CSP compatible)', () => {
+  const dir = path.join(__dirname, '..', 'public');
+  const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /<script(?![^>]*\ssrc=)[^>]*>/);
+  for (const f of ['index.html', 'app.js']) {
+    assert.doesNotMatch(fs.readFileSync(path.join(dir, f), 'utf8'), /style="/, f);
+  }
+});

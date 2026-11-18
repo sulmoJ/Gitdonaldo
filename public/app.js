@@ -10,6 +10,11 @@ const laneColor = (i) => LANE_COLORS[((i % LANE_COLORS.length) + LANE_COLORS.len
 const $ = (id) => document.getElementById(id);
 const state = { repo: null, commits: [], refs: [], selected: null, repoPath: undefined };
 
+// Desktop bridge exposed by electron/preload.js; undefined in browser mode.
+const desktop = window.gitdonaldo;
+// Per-launch API token (desktop mode passes it in the page URL).
+const API_TOKEN = new URL(location.href).searchParams.get('token');
+
 function qsRepo() {
   return new URL(location.href).searchParams.get('repo') || undefined;
 }
@@ -18,7 +23,8 @@ function api(ep, params = {}) {
   const repo = state.repoPath || qsRepo();
   if (repo) u.searchParams.set('repo', repo);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-  return fetch(u).then((r) => r.json());
+  const headers = API_TOKEN ? { 'x-gitdonaldo-token': API_TOKEN } : {};
+  return fetch(u, { headers }).then((r) => r.json());
 }
 
 function shortDate(iso) {
@@ -227,6 +233,10 @@ function renderRefs(refs) {
 }
 
 async function load() {
+  if (desktop && !state.repoPath && !qsRepo()) {
+    $('repoinfo').innerHTML = '<span class="hint">📂 열기 버튼으로 git 저장소 폴더를 선택하세요</span>';
+    return;
+  }
   try {
     const [repo, refs, commits, status] = await Promise.all([
       api('/api/repo'), api('/api/refs'), api('/api/commits', { limit: 400 }), api('/api/status'),
@@ -247,14 +257,26 @@ async function load() {
     renderList(rows, gw, refs);
     renderRefs(refs);
     $('sbLeft').textContent = repo.path;
+    if (desktop) desktop.rememberRepo(repo.path);
   } catch (e) {
-    $('repoinfo').innerHTML = `<span style="color:#f0768b">${escapeHtml(e.message)}</span>`;
+    $('repoinfo').innerHTML = e.message === 'no repo selected'
+      ? '<span class="hint">repo 경로를 입력하세요</span>'
+      : `<span class="error">${escapeHtml(e.message)}</span>`;
     $('commitList').innerHTML = '';
     $('graph').innerHTML = '';
   }
 }
 
 $('refreshBtn').addEventListener('click', load);
+async function openRepoDialog() {
+  const picked = await desktop.selectRepo();
+  if (picked) { state.repoPath = picked; load(); }
+}
+if (desktop) {
+  $('openBtn').hidden = false;
+  $('openBtn').addEventListener('click', openRepoDialog);
+  desktop.onOpenRepoRequest(openRepoDialog);
+}
 $('repoInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { state.repoPath = e.target.value.trim(); load(); }
 });
