@@ -2,7 +2,7 @@
   "name": "gitdonaldo",
   "productName": "Gitdonaldo",
   "version": "0.1.0",
-  "description": "Minimal read-only git client desktop app (Electron + system git)",
+  "description": "Minimal read-only git client desktop app for macOS (Electron + system git)",
   "author": "Gitdonaldo contributors",
   "main": "electron/main.js",
   "desktopName": "gitdonaldo.desktop",
@@ -14,10 +14,8 @@
     "app": "electron .",
     "test": "node --test",
     "test:e2e": "node e2e/electron.e2e.js",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
   },
   "engines": {
     "node": ">=18"
@@ -51,22 +49,10 @@
           ]
         }
       ],
-      "category": "public.app-category.developer-tools"
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "category": "public.app-category.developer-tools",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false
     },
     "linux": {
       "target": [
@@ -79,7 +65,8 @@
       ],
       "category": "Development",
       "syncDesktopName": true,
-      "executableName": "gitdonaldo"
+      "executableName": "gitdonaldo",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "publish": null
   }

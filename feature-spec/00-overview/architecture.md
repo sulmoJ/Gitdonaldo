@@ -26,7 +26,7 @@
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-메인 프로세스 동작은 [desktop-shell](../01-backend/desktop-shell.md), 설치 파일 빌드는 [packaging](./packaging.md)에 있다.
+메인 프로세스 동작은 [desktop-shell](../01-backend/desktop-shell.md), 설치 파일 빌드·CI·출시는 [packaging](./packaging.md)에 있다. 출시 대상은 **macOS**다.
 
 ## 구성 요소 (브라우저 모드)
 
@@ -53,6 +53,7 @@
 | `test/server.test.js` | 서버 단위 테스트(`node:test`) | — |
 | `e2e/electron.e2e.js` | Electron 앱 E2E(`playwright-core`) | — |
 | `package.json` | 메타데이터, 스크립트, `electron-builder` 설정(`build`) | — |
+| `.github/workflows/ci.yml` | CI: 단위 테스트, macOS 빌드·E2E, 태그 시 릴리스 | — |
 
 UI 코드에는 빌드 단계가 없다. `public/` 파일을 그대로 쓴다. 설치 파일만 `electron-builder`로 만든다.
 
@@ -72,7 +73,7 @@ npm run app           # 데스크톱 앱 (개발 실행)
 node server.js        # 브라우저 모드 (= npm start)
 npm test              # 서버 단위 테스트
 npm run test:e2e      # Electron E2E (Linux 헤드리스: xvfb-run -a npm run test:e2e)
-npm run dist          # 현재 OS용 설치 파일 → dist/
+npm run dist          # macOS dmg (arm64, x64) → dist/  ※ macOS에서만
 ```
 
 다른 Node 코드에서 `require('./server.js').start({ port: 0 })`로 띄울 수도 있다. 자세한 내용은 [server-runtime](../01-backend/server-runtime.md#startopts--모듈-api).

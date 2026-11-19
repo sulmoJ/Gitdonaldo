@@ -23,7 +23,7 @@ Gitdonaldo의 현재 구현(v0.1.0, Electron 데스크톱 앱 포함) 기준 기
 - 00-overview
   - [product-overview.md](./00-overview/product-overview.md) — 목적, 범위, 비목표
   - [architecture.md](./00-overview/architecture.md) — 실행 모드(데스크톱/브라우저), 구성 요소, 데이터 흐름, 실행·설정
-  - [packaging.md](./00-overview/packaging.md) — 설치 파일 빌드, electron-builder 설정, 검증 상태
+  - [packaging.md](./00-overview/packaging.md) — macOS 설치 파일, 서명 상태, CI, 출시 절차
 - 01-backend
   - [server-runtime.md](./01-backend/server-runtime.md) — HTTP 서버, `start()` 모듈 API, 보안 검사, 라우팅, 정적 파일, 에러 처리
   - [git-engine.md](./01-backend/git-engine.md) — git 호출 방식, 명령별 파싱 규칙

@@ -12,7 +12,7 @@ v0.1.0 코드 검토와 실제 API 호출·E2E 실행으로 확인한 내용이�
 | 화면 | 고정 3열 레이아웃, 반응형·라이트 모드 없음 |
 | 기능 | 검색·필터, 파일별 diff, blame, stash 목록 없음 |
 | 실행 환경 | 시스템 `git` 필요. 데스크톱 앱은 Node 불필요(Electron 내장), 브라우저 모드는 Node 18+ |
-| 배포 | 코드 서명·공증·자동 업데이트 없음. 서명 전에는 OS 보안 경고가 뜬다 |
+| 배포 | macOS만 출시. ad-hoc 서명이며 공증·자동 업데이트 없음 → 받은 dmg는 Gatekeeper가 막아 사용자가 직접 허용해야 한다([packaging](../00-overview/packaging.md#서명-상태)) |
 
 ## 알려진 이슈
 
@@ -32,7 +32,7 @@ v0.1.0 코드 검토와 실제 API 호출·E2E 실행으로 확인한 내용이�
 | 12 | 문서 | ~~README API 표에 `/api/health` 누락~~ → 수정됨 | — | `README.md` |
 | 13 | 코드 | `log`에 `--topo-order`와 `--date-order`를 같이 넘기지만 실제로는 `--date-order`만 적용됨 | 마지막 옵션 우선 | `server.js:68` |
 | 14 | 디자인 | 행 높이·레인 폭 값이 CSS 변수와 JS 상수에 중복 정의 | 단일 출처 없음 | `public/style.css:11-14`, `public/app.js:3` |
-| 15 | 패키징 | macOS `.dmg`, Windows `.exe` 설치 파일은 빌드·실행을 검증하지 못함 | 해당 OS 빌드 환경 없음. Linux AppImage만 검증 | `package.json` `build` |
+| 15 | 패키징 | 패키지된 Intel(x64) 앱은 CI에서 빌드·번들 검사만 하고 실행 E2E는 하지 않음 | CI 러너가 Apple Silicon | `.github/workflows/ci.yml` |
 | 16 | 의존성 | `npm audit`에서 개발용 패키지(`electron-builder` 하위 `minimatch`, `picomatch`)에 취약점 경고 | 빌드 도구 전이 의존성. 앱 런타임(asar)에는 들어가지 않음(`npm audit --omit=dev` 0건) | `package-lock.json` |
 | 17 | 디자인 | 앱 아이콘이 임시 디자인 | 이름·아이콘 미확정 | `build/icon.svg` |
 
@@ -62,5 +62,6 @@ v0.1.0 코드 검토와 실제 API 호출·E2E 실행으로 확인한 내용이�
 
 ### 품질
 - 서버 단위 테스트(`test/server.test.js`, 11개)와 Electron E2E(`e2e/electron.e2e.js`, 16개 항목)는 있음. `layout()` 단위 테스트(머지·분기·합류 케이스)와 엔드포인트별 응답 형식 테스트는 아직 없음
-- OS별 빌드·E2E를 돌리는 CI(GitHub Actions 매트릭스)
+- ~~CI~~ → 완료(`.github/workflows/ci.yml`, macOS)
+- Developer ID 서명·공증으로 Gatekeeper 경고 제거
 - 그래프 상수의 단일 출처화(CSS 변수를 JS에서 읽거나 그 반대)

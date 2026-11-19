@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    name: Unit tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install (skip Electron binary)
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm test
+
+  mac:
+    name: macOS build + E2E
+    runs-on: macos-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+      - name: E2E (dev app)
+        run: npm run test:e2e
+
+      - name: Build dmg (arm64 + x64)
+        run: npm run dist
+
+      - name: Verify app bundles
+        run: |
+          set -euo pipefail
+          for app in dist/mac-arm64/Gitdonaldo.app dist/mac/Gitdonaldo.app; do
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            lipo -archs "$app/Contents/MacOS/Gitdonaldo"
+          done
+          ls -lh dist/*.dmg
+
+      - name: E2E (packaged arm64 app)
+        run: npm run test:e2e -- dist/mac-arm64/Gitdonaldo.app/Contents/MacOS/Gitdonaldo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gitdonaldo-macos-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: mac
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match package.json version
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          if [ "$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $v"; exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: Gitdonaldo-macos-dmg
+          path: dist
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "Gitdonaldo $GITHUB_REF_NAME" --generate-notes

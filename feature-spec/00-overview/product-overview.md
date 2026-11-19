@@ -28,7 +28,7 @@
 | 레포 전환 | 폴더 열기 대화상자(데스크톱), 입력창에 경로 입력, URL `?repo=`, 환경변수 `REPO`(브라우저 모드) | [repo-selection](../03-frontend/repo-selection.md) |
 | HTTP API | 레포/ref/커밋/상태/상세 조회 JSON API | [api-endpoints](../02-api/api-endpoints.md) |
 | 데스크톱 앱 | Electron 창, 폴더 열기 대화상자, 메뉴, 마지막 레포 기억, 단일 인스턴스, git 미설치 안내 | [desktop-shell](../01-backend/desktop-shell.md) |
-| 설치 파일 | macOS `.dmg`, Windows `.exe`, Linux `.AppImage` | [packaging](../00-overview/packaging.md) |
+| 설치 파일 | macOS `.dmg`(Apple Silicon, Intel). CI가 빌드하고 태그 시 GitHub Release로 배포 | [packaging](../00-overview/packaging.md) |
 | 로컬 보안 | 실행별 API 토큰, Host 검사, CSP, 렌더러 샌드박스 | [security](../05-quality/security.md) |
 
 ## 비목표 (의도적으로 하지 않는 것)
@@ -40,7 +40,7 @@
 
 ## 기술 제약
 
-- 데스크톱 앱: macOS / Windows / Linux(x64). Node.js 불필요
+- 데스크톱 앱: **macOS**(Apple Silicon, Intel). Node.js 불필요. Windows·Linux는 출시 대상 아님
 - 브라우저 모드·개발: Node.js 18 이상 (`package.json` `engines`)
 - 시스템 PATH에 `git` 실행 파일
 - 브라우저 모드: `fetch`, `URL`, ES2020(옵셔널 체이닝)을 지원하는 최신 브라우저

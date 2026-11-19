@@ -3,6 +3,7 @@
 | 항목 | 내용 |
 |---|---|
 | 상태 | **완료** — M1~M4 구현. 후속 과제만 남음 |
+| 출시 결정 | **macOS 우선 출시** (2026-11-19). Windows 제외, Linux는 내부 검증용 |
 | 구현 명세 | [architecture](../00-overview/architecture.md) · [desktop-shell](../01-backend/desktop-shell.md) · [server-runtime](../01-backend/server-runtime.md#요청-보안-검사) · [packaging](../00-overview/packaging.md) · [security](../05-quality/security.md) |
 | 작성일 | 2026-11-18 |
 | 기준 코드 | v0.1.0 (`f042d13`) |
@@ -130,7 +131,7 @@ Gitdonaldo/
 
 | 기준 | 결과 | 확인 방법 |
 |---|---|---|
-| Node.js가 없는 노트북에서 설치 파일로 설치하고 실행할 수 있다 | ✅ Linux / ⬜ macOS·Windows 미검증 | 패키지된 Linux 앱을 node 없는 PATH로 E2E, AppImage 직접 실행 |
+| Node.js가 없는 노트북에서 설치 파일로 설치하고 실행할 수 있다 | ✅ Linux 검증 / macOS는 CI E2E로 검증 | 패키지된 Linux 앱을 node 없는 PATH로 E2E, macOS는 CI의 패키지된 arm64 앱 E2E |
 | 폴더 선택으로 로컬 저장소를 열면 그래프·사이드바·상세가 기존과 똑같이 동작한다 | ✅ | E2E (대화상자 스텁) |
 | 앱을 다시 켜면 마지막 레포가 열린다 | ✅ | E2E 재실행 |
 | git이 없으면 안내 후 종료한다 | ✅ | git을 숨기고 실행해 대화상자 화면 확인(수동) |
@@ -145,11 +146,12 @@ Gitdonaldo/
 | M2 ✅ | Electron 진입점, preload, 폴더 열기 버튼 | `npm run app`. [desktop-shell](../01-backend/desktop-shell.md) |
 | M3 ✅ | 토큰·Host 검사·CSP 등 보안 항목 | [server-runtime](../01-backend/server-runtime.md#요청-보안-검사), [security](../05-quality/security.md) |
 | M4 ✅ | electron-builder 설정, 아이콘, 3개 OS 설치 파일 | 설정 완료, Linux AppImage 빌드·검증. [packaging](../00-overview/packaging.md) |
-| 후속 | macOS·Windows 빌드 검증, OS별 빌드 CI, 코드 서명·공증, 자동 업데이트, 정식 아이콘, IPC 전환(안 B) | — |
+| M5 ✅ | macOS 출시 준비: ad-hoc 서명, macOS CI(빌드·E2E), 태그 릴리스 | [packaging](../00-overview/packaging.md#ci-github-actions) |
+| 후속 | Developer ID 서명·공증, 자동 업데이트, 정식 아이콘, IPC 전환(안 B) | — |
 
 ## 10. 미정 사항 (여전히 열려 있음)
 
-- 배포 대상 OS 우선순위(사내 노트북이 macOS 위주인지)
+- ~~배포 대상 OS 우선순위~~ → macOS 우선 출시로 결정
 - 코드 서명 인증서 확보 여부
 - 앱 이름·아이콘 확정
 
