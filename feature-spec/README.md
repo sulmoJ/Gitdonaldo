@@ -30,13 +30,16 @@ Gitdonaldo의 현재 구현(v0.1.0, Electron 데스크톱 앱 포함) 기준 기
   - [desktop-shell.md](./01-backend/desktop-shell.md) — Electron 메인 프로세스: 기동, 창, 메뉴, preload 브리지, IPC, 설정, 하드닝
 - 02-api
   - [api-conventions.md](./02-api/api-conventions.md) — 공통 규약(파라미터, 응답, 에러 코드)
-  - [api-endpoints.md](./02-api/api-endpoints.md) — 엔드포인트별 명세
+  - [api-endpoints.md](./02-api/api-endpoints.md) — 읽기 엔드포인트별 명세
+  - [api-write.md](./02-api/api-write.md) — 쓰기 API: 에러 모델, 2단계 확인 토큰, 엔드포인트
 - 03-frontend
   - [ui-layout.md](./03-frontend/ui-layout.md) — 화면 구성과 초기 로딩
   - [commit-graph.md](./03-frontend/commit-graph.md) — 레인 배치 알고리즘, SVG 렌더링, 커밋 행
   - [refs-sidebar.md](./03-frontend/refs-sidebar.md) — Working dir 상태, 브랜치·태그 목록
   - [commit-detail.md](./03-frontend/commit-detail.md) — 커밋 상세 패널
   - [repo-selection.md](./03-frontend/repo-selection.md) — 대상 레포 지정과 새로고침
+  - [working-area.md](./03-frontend/working-area.md) — 스테이징 2열과 커밋 박스
+  - [git-actions.md](./03-frontend/git-actions.md) — 원격 바, 컨텍스트 메뉴, 확인 다이얼로그, 토스트, 작업 배너
 - 04-design
   - [design-tokens.md](./04-design/design-tokens.md) — 색상, 치수, 타이포그래피
 - 05-quality
@@ -44,6 +47,7 @@ Gitdonaldo의 현재 구현(v0.1.0, Electron 데스크톱 앱 포함) 기준 기
   - [constraints-and-known-issues.md](./05-quality/constraints-and-known-issues.md) — 제약, 알려진 이슈, 향후 과제
 - 06-roadmap
   - [electron-desktop-app.md](./06-roadmap/electron-desktop-app.md) — [완료] Electron 단일 데스크톱 앱 패키징 (설계 기록과 후속 과제)
+  - [write-operations.md](./06-roadmap/write-operations.md) — [완료] 쓰기 기능 M0~M3 구현 싱크 로그 (스펙과 달라진 점)
 
 ## 작성 규칙
 

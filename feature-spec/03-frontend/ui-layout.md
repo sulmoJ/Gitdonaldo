@@ -23,7 +23,8 @@
 |---|---|---|---|
 | 상단바 | `#topbar` | 브랜드, 레포 정보(`#repoinfo`), 폴더 열기(`#openBtn`, 데스크톱 앱만), 경로 입력(`#repoInput`), 새로고침(`#refreshBtn`) | [repo-selection](./repo-selection.md) |
 | 좌측 | `#sidebar` | Working dir 상태, Local/Remote/Tags 목록 | [refs-sidebar](./refs-sidebar.md) |
-| 중앙 | `#graphpane` | SVG 그래프(`#graph`) + 커밋 행(`#commitList`) | [commit-graph](./commit-graph.md) |
+| 중앙 | `#graphpane` | SVG 그래프(`#graph`) + 커밋 행(`#commitList`), 아래에 작업 영역(`#workArea`, 280px) | [commit-graph](./commit-graph.md), [working-area](./working-area.md) |
+| 상단 | `#remotebar`, `#opBanner` | Fetch/Pull/Push, 진행 중 merge 등의 배너 | [git-actions](./git-actions.md) |
 | 우측 | `#detail` | 선택 전 "커밋을 선택하세요", 선택 후 상세 | [commit-detail](./commit-detail.md) |
 | 하단바 | `#statusbar` | 왼쪽 레포 경로(`#sbLeft`), 오른쪽 고정 문구 | — |
 
@@ -36,7 +37,7 @@
 페이지 로드 직후 한 번, 새로고침 버튼과 경로 입력 Enter 때마다 실행한다.
 
 0. 데스크톱 앱이고 지정된 레포가 없으면 안내 문구만 보이고 끝낸다 ([repo-selection](./repo-selection.md#레포를-아직-고르지-않았을-때)).
-1. API 4개 병렬 호출: `/api/repo`, `/api/refs`, `/api/commits?limit=400`, `/api/status`
+1. API 7개 병렬 호출: `/api/repo`, `/api/refs`, `/api/commits?limit=400`, `/api/status`, `/api/ahead-behind`, `/api/op-state`, `/api/stashes`. 쓰기 작업이 성공할 때마다 이 과정을 다시 돈다.
 2. `repo.error`가 있으면 에러 처리로 넘어간다.
 3. 클라이언트 상태(`state.repo`, `state.refs`, `state.commits`) 갱신
 4. 상단 `#repoinfo`: `<b>이름</b> · on <b>브랜치</b> · N commits loaded`
@@ -50,7 +51,7 @@
 
 - `#repoinfo`에 에러 메시지를 빨간색(`.error`, `#f0768b`)으로 표시. CSP 때문에 인라인 `style` 속성 대신 클래스를 쓴다.
 - 커밋 목록과 그래프를 비운다.
-- 사이드바와 상세 패널은 비우지 않는다(이전 레포 내용이 남음, [알려진 이슈](../05-quality/constraints-and-known-issues.md)).
+- 사이드바(브랜치·태그·stash), 상세 패널, 작업 영역도 비우고 원격 바를 숨긴다.
 
 ## 클라이언트 상태
 

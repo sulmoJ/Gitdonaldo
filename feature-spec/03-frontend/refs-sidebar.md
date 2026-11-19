@@ -12,7 +12,11 @@
 | `count === 1` | `● 1 change` | 주황(`#f0b457`) |
 | `count > 1` | `● N changes` | 주황 |
 
-변경 파일 목록(`files`)과 브랜치 추적 정보(`branchLine`)는 API가 내려주지만 화면에는 표시하지 않는다.
+이 줄을 클릭하면 그래프 아래 [작업 영역](./working-area.md)을 열고 닫는다. 현재 브랜치 항목에는 upstream 대비 `↑ahead↓behind`를 붙인다.
+
+## 우클릭·더블클릭
+
+브랜치·태그 우클릭 메뉴와 더블클릭 체크아웃은 [git-actions](./git-actions.md#컨텍스트-메뉴-우클릭). 사이드바 맨 아래 STASHES 목록도 같은 문서에 있다.
 
 ## LOCAL / REMOTE / TAGS
 

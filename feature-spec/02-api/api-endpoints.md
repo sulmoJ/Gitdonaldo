@@ -1,6 +1,6 @@
 # API 엔드포인트
 
-공통 규약은 [api-conventions.md](./api-conventions.md). 내부 git 명령과 파싱은 [git-engine.md](../01-backend/git-engine.md).
+읽기 엔드포인트다. 공통 규약은 [api-conventions.md](./api-conventions.md), 쓰기는 [api-write.md](./api-write.md). 내부 git 명령과 파싱은 [git-engine.md](../01-backend/git-engine.md).
 
 | 엔드포인트 | 설명 | 레포 검사 | 프론트 사용 |
 |---|---|---|---|
@@ -9,7 +9,12 @@
 | `GET /api/refs` | 로컬·원격 브랜치, 태그 | 함 | 초기 로딩 |
 | `GET /api/commits` | 커밋 목록(그래프용) | 함 | 초기 로딩 (`limit=400`) |
 | `GET /api/status` | 작업 트리 변경 상태 | 함 | 초기 로딩 |
-| `GET /api/commit` | 커밋 하나의 상세 | 함 | 커밋 행 클릭 |
+| `GET /api/commit` | 커밋 하나의 상세 | 함 | 커밋 행 클릭, amend 메시지 채우기 |
+| `GET /api/ahead-behind` | upstream 대비 ahead/behind | 함 | 초기 로딩(원격 바 배지) |
+| `GET /api/op-state` | 진행 중 작업과 충돌 파일 | 함 | 초기 로딩(작업 배너) |
+| `GET /api/stashes` | stash 목록 | 함 | 초기 로딩(사이드바) |
+| `GET /api/remotes` | 원격 이름 목록 | 함 | 안 씀 |
+| `GET /api/snapshot` | repo·status·refs·opState·aheadBehind·stashes 묶음(쓰기 응답과 같은 형태) | 함 | 안 씀 |
 
 ---
 
@@ -40,7 +45,7 @@
 |---|---|---|
 | `path` | string | 작업 트리 최상위 경로. 조회 실패 시 요청한 `repo` 값 |
 | `name` | string | `path`의 마지막 디렉터리 이름 |
-| `currentBranch` | string | 현재 브랜치 약칭. detached HEAD면 `"HEAD"`, 조회 실패 시 `"(detached)"` |
+| `currentBranch` | string | 현재 브랜치 약칭(`symbolic-ref`). 커밋 전 브랜치도 이름이 나온다. detached HEAD면 `"(detached)"` |
 | `head` | string \| null | HEAD 커밋 해시. 커밋이 없으면 `null` |
 
 ---
@@ -63,6 +68,8 @@
 | `short` | string | 축약 이름 |
 | `type` | `"local"` \| `"remote"` \| `"tag"` | ref 종류 |
 | `isHead` | boolean | 현재 체크아웃된 로컬 브랜치면 `true` |
+| `target` | string? | 주석 태그일 때만: 태그가 가리키는 커밋 해시(peel). 화면은 `target \|\| oid`로 커밋에 붙인다 |
+| `upstream` | string? | 로컬 브랜치의 upstream 약칭(있을 때만) |
 
 조회 실패 시 빈 배열 `[]` (에러 아님).
 
@@ -109,8 +116,9 @@
 {
   "branchLine": "main...origin/main [ahead 1]",
   "files": [
-    { "xy": " M", "path": "server.js" },
-    { "xy": "??", "path": "feature-spec/" }
+    { "xy": " M", "path": "server.js", "staged": false, "unstaged": true, "untracked": false, "conflicted": false },
+    { "xy": "R ", "path": "new.md", "origPath": "old.md", "staged": true, "unstaged": false, "untracked": false, "conflicted": false },
+    { "xy": "??", "path": "feature-spec/a.md", "staged": false, "unstaged": true, "untracked": true, "conflicted": false }
   ],
   "count": 2
 }
@@ -120,7 +128,10 @@
 |---|---|---|
 | `branchLine` | string | `git status -b`의 브랜치 줄에서 `## `를 뗀 값 |
 | `files[].xy` | string | porcelain v1 2글자 상태 코드(인덱스, 작업 트리) |
-| `files[].path` | string | 경로. 이름 변경은 `"old -> new"` |
+| `files[].path` | string | 경로(따옴표 없는 원래 이름, `-z` 파싱). 이름 변경은 새 경로. 추적 안 하는 디렉터리는 파일 단위로 나온다 |
+| `files[].origPath` | string? | 이름 변경·복사의 원래 경로 |
+| `files[].staged` / `unstaged` | boolean | 인덱스에 변경 있음 / 작업 트리에 변경 있음(새 파일·충돌 포함). 둘 다 참일 수 있다 |
+| `files[].untracked` / `conflicted` | boolean | `??` / 충돌 상태(`UU`, `AA`, `DU` 등) |
 | `count` | number | `files` 길이 |
 
 조회 실패 시 `{ "branchLine": "", "files": [], "count": 0 }`.
@@ -164,5 +175,31 @@
 
 | 조건 | 코드 | 본문 |
 |---|---|---|
-| `hash` 누락·형식 오류 | 500 | `{ "error": "bad hash" }` |
-| 커밋 없음·모호한 짧은 해시 | 500 | `{ "error": "...", "stderr": "fatal: ..." }` |
+| `hash` 누락·형식 오류 | 400 | `{ "error": "bad hash", "code": "BAD_REQUEST" }` |
+| 커밋 없음·모호한 짧은 해시 | 500 | `{ "error": "...", "code": "GIT_FAILED", "stderr": "fatal: ..." }` |
+
+---
+
+## GET /api/ahead-behind
+
+```json
+{ "ahead": 1, "behind": 0, "upstream": "origin/main" }
+```
+upstream이 없으면 `{ "ahead": 0, "behind": 0, "noUpstream": true }`. 명령: `rev-list --left-right --count HEAD...@{u}`.
+
+## GET /api/op-state
+
+```json
+{ "op": "merge", "conflicts": ["a.txt"] }
+```
+`op`: `null` | `"merge"` | `"revert"` | `"cherry-pick"` | `"rebase"` (git 디렉터리의 `MERGE_HEAD` 등으로 판별). `conflicts`: `diff --name-only --diff-filter=U`.
+
+## GET /api/stashes
+
+```json
+[{ "index": 0, "ref": "stash@{0}", "hash": "…", "message": "On main: wip", "date": "2026-11-19T10:00:00+09:00" }]
+```
+
+## GET /api/remotes
+
+`["origin"]`

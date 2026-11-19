@@ -1,7 +1,10 @@
 # Gitdonaldo
 
-최소 read-only git 클라이언트 macOS 데스크톱 앱. 런타임 의존성 0개, Node 코어 + 시스템 `git`만 사용한다.
-커밋 그래프, 브랜치/태그, 커밋 상세를 본다. 백엔드와 UI 모두 내 노트북 안에서만 돈다.
+최소 git 클라이언트 macOS 데스크톱 앱. 런타임 의존성 0개, Node 코어 + 시스템 `git`만 사용한다.
+커밋 그래프, 브랜치/태그, 커밋 상세를 보고 스테이징·커밋·브랜치·머지·reset·태그·stash·fetch/pull/push를 한다. 백엔드와 UI 모두 내 노트북 안에서만 돈다.
+
+- 파괴적 작업(변경 버리기, hard reset, 브랜치·태그·stash 삭제, force push)은 서버가 발급한 확인 토큰으로 두 번 확인한다. 고위험 작업은 `CONFIRM`을 입력해야 한다.
+- 자격증명은 저장하지 않는다. 원격 인증은 git credential helper(macOS 키체인 등)와 ssh-agent를 그대로 쓴다.
 
 기능 명세는 [`feature-spec/`](./feature-spec/README.md)에 있다.
 
@@ -45,7 +48,7 @@ REPO=/path/to/repo PORT=5000 node server.js
 ## 테스트
 
 ```bash
-npm test                 # 서버 단위 테스트 (node --test)
+npm test                 # 서버 단위 테스트 (node --test, 읽기 + 쓰기 API)
 npm run test:e2e         # Electron E2E (Linux 헤드리스: xvfb-run -a npm run test:e2e)
 npm run test:e2e -- dist/linux-unpacked/gitdonaldo   # 패키지된 앱 검사
 ```
@@ -69,5 +72,21 @@ await app.close();
 | `GET /api/commits?limit=N` | `--all --topo-order` 커밋 목록 |
 | `GET /api/status` | working dir 변경 상태 |
 | `GET /api/commit?hash=…` | 커밋 상세 + 파일 stat |
+| `GET /api/ahead-behind` | upstream 대비 ahead/behind |
+| `GET /api/op-state` | 진행 중인 merge/revert/cherry-pick/rebase와 충돌 파일 |
+| `GET /api/stashes` · `/api/remotes` · `/api/snapshot` | stash 목록 · 원격 목록 · 상태 묶음 |
 
-모든 엔드포인트는 `?repo=` 로 대상 레포를 바꿀 수 있다. 읽기 전용이다.
+쓰기는 `POST` + `content-type: application/json`이다.
+
+| 엔드포인트 | 설명 |
+|---|---|
+| `POST /api/stage` · `/unstage` · `/discard`* | 스테이징 / 내리기 / 작업 트리 변경 버리기 |
+| `POST /api/commit` | 커밋 (사전 검사, Co-authored-by, amend) |
+| `POST /api/branch` · `/branch/delete`* · `/checkout` · `/merge` | 브랜치 생성·삭제, 체크아웃, 머지 |
+| `POST /api/op/abort` · `/op/continue` | 진행 중 작업 중단·계속 |
+| `POST /api/reset`(hard*) · `/revert` · `/cherry-pick` | 히스토리 작업 |
+| `POST /api/tag` · `/tag/delete`* | 태그 |
+| `POST /api/stash` · `/stash/apply` · `/stash/pop` · `/stash/drop`* | stash |
+| `POST /api/fetch` · `/pull` · `/push`(force*) | 원격 |
+
+`*`는 2단계 확인(첫 호출 428 + `confirmToken`). 모든 엔드포인트는 `?repo=` 로 대상 레포를 바꿀 수 있다. 자세한 계약은 [api-write](./feature-spec/02-api/api-write.md).

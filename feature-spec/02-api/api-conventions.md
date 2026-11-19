@@ -6,14 +6,14 @@
 
 - 기본 URL: `http://127.0.0.1:<PORT>` (기본 포트 4317)
 - 모든 API는 `/api/` 아래에 있다.
-- 메서드: `GET` (서버는 메서드를 검사하지 않지만 클라이언트는 GET만 쓴다)
+- 메서드: 읽기는 `GET`, 쓰기는 `POST` + `content-type: application/json` ([api-write](./api-write.md)). 읽기 경로에 GET/HEAD 외 메서드는 405.
 - 응답: `application/json; charset=utf-8`
 - 접근 통제
   - 서버는 루프백(`127.0.0.1`)에만 바인딩한다.
   - `Host` 헤더는 `127.0.0.1:<포트>` 또는 `localhost:<포트>`만 받는다.
   - **데스크톱 앱**: 모든 `/api/*` 요청에 `x-gitdonaldo-token: <실행별 토큰>` 헤더가 필요하다. 토큰은 앱이 창 URL의 `?token=`으로 넘기고, `app.js`가 읽어 헤더로 보낸다.
   - 브라우저 모드(`node server.js`): 토큰 없음.
-- **읽기 전용**: 어떤 API도 저장소 상태를 바꾸지 않는다.
+- 읽기 API는 저장소 상태를 바꾸지 않는다. 쓰기 API는 레포별 락으로 직렬화되고, 파괴적 작업은 2단계 확인을 거친다([api-write](./api-write.md)).
 
 ## 공통 쿼리 파라미터
 
@@ -25,26 +25,24 @@
 
 ## 에러 응답
 
-본문은 항상 `error` 문자열을 가진 객체다.
+본문은 항상 `error` 문자열을 가진 객체다. 403 토큰 오류를 뺀 모든 에러에는 기계용 `code`도 붙는다(전체 목록은 [api-write](./api-write.md#에러-모델)).
 
 ```json
-{ "error": "not a git repo: /tmp" }
+{ "error": "not a git repo: /tmp", "code": "NOT_A_REPO" }
 ```
 
 | 코드 | 의미 | 예 |
 |---|---|---|
 | 403 | 토큰 없음·불일치, 또는 허용되지 않은 `Host` | 데스크톱 앱 포트에 `curl`로 직접 요청 |
-| 400 | 대상 경로가 git 작업 트리가 아님, 또는 지정된 레포가 없음 | 없는 경로, bare 저장소, 일반 디렉터리, `defaultRepo: null`인데 `?repo=` 없음 |
+| 400 | 입력 형식 오류, 대상 경로가 git 작업 트리가 아님, 또는 지정된 레포가 없음 | 잘못된 해시 형식(`bad hash`), 없는 경로, bare 저장소, `defaultRepo: null`인데 `?repo=` 없음 |
 | 404 | 알 수 없는 API 경로 | `/api/nope` |
-| 500 | 처리 중 예외 | 잘못된 해시 형식, 없는 커밋, git 실행 실패 |
+| 500 | 처리 중 예외 | 없는 커밋, git 실행 실패 (`code: GIT_FAILED`) |
 
-500 응답에는 git의 stderr가 `stderr` 필드로 붙을 수 있다.
+git 실패 응답에는 stderr가 `stderr` 필드로 붙을 수 있다(자격정보는 가린다). 실행한 명령줄은 더 이상 내보내지 않는다.
 
 ```json
-{ "error": "Command failed: git -C . show -s ...", "stderr": "fatal: bad object deadbeef\n" }
+{ "error": "git show failed", "code": "GIT_FAILED", "stderr": "fatal: bad object deadbeef\n" }
 ```
-
-> 입력값 검증 실패(`bad hash`)도 현재는 500이다. 400으로 바꾸는 안은 [향후 과제](../05-quality/constraints-and-known-issues.md)에 있다.
 
 ## 데이터 형식
 
@@ -58,4 +56,5 @@
 
 - `repo` 결정 순서: 입력창에서 Enter로 지정한 값(`state.repoPath`) → 페이지 URL의 `?repo=` → 생략(서버 기본값).
 - 페이지 URL에 `?token=`이 있으면 모든 요청에 `x-gitdonaldo-token` 헤더를 붙인다.
-- 응답 상태 코드는 보지 않고 항상 `r.json()`을 반환한다. 에러 판단은 본문의 `error` 필드로 한다.
+- 읽기 `api()`는 응답 상태 코드는 보지 않고 항상 `r.json()`을 반환한다. 에러 판단은 본문의 `error` 필드로 한다.
+- 쓰기 `post(ep, body)`는 `{ status, body }`를 반환하고, `runWrite()`가 428 확인 흐름과 토스트를 처리한다([git-actions](../03-frontend/git-actions.md)).
