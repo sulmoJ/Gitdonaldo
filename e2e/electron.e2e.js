@@ -22,6 +22,8 @@ const cfg = fs.mkdtempSync(path.join(os.tmpdir(), 'gd-cfg-'));
 const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'gd-repo-'));
 const g = (...a) => execFileSync('git', ['-C', repo, ...a]);
 g('init', '-q', '-b', 'main');
+g('config', 'user.name', 'T');
+g('config', 'user.email', 't@example.com');
 for (const m of ['one', 'two']) g('-c', 'user.name=T', '-c', 'user.email=t@example.com', 'commit', '-q', '--allow-empty', '-m', m);
 
 // Isolate settings.json (userData) from the real profile.
@@ -73,6 +75,20 @@ function rawStatus(port, p, headers) {
   await win.waitForSelector('#detailBody h2');
   check(await win.textContent('#detailBody h2') === 'two', 'commit detail loads');
   check(errors.length === 0, `no renderer errors ${errors.length ? JSON.stringify(errors) : ''}`);
+
+  // ---- write path: stage + commit through the UI (token sent on POST) -----------------
+  const post = await fetch(`${url.origin}/api/stage?repo=${encodeURIComponent(repo)}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"all":true}' });
+  check(post.status === 403, 'write API without token -> 403');
+  fs.writeFileSync(path.join(repo, 'e2e.txt'), 'hello\n');
+  await win.click('#refreshBtn');
+  await win.waitForSelector('#unstagedList li .fname');
+  await win.click('#stageAllBtn');
+  await win.waitForFunction(() => document.querySelector('#stagedCount').textContent === '1');
+  await win.fill('#commitMsg', 'three');
+  await win.click('#commitBtn');
+  await win.waitForFunction(() => document.querySelectorAll('#commitList li').length === 3);
+  check(execFileSync('git', ['-C', repo, 'log', '-1', '--format=%s']).toString().trim() === 'three', 'stage + commit from the UI');
 
   // ---- navigation lock (keep last: Playwright treats the cancelled navigation as pending)
   await win.evaluate(() => { location.href = 'https://example.com/'; });

@@ -2,7 +2,7 @@
   "name": "gitdonaldo",
   "productName": "Gitdonaldo",
   "version": "0.1.0",
-  "description": "Minimal read-only git client desktop app for macOS (Electron + system git)",
+  "description": "Minimal git client desktop app for macOS (Electron + system git)",
   "author": "Gitdonaldo contributors",
   "main": "electron/main.js",
   "desktopName": "gitdonaldo.desktop",
