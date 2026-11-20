@@ -81,7 +81,7 @@ body {
 
 #graphpane { overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
 #graphScroll { position: relative; overflow: auto; width: 100%; flex: 1 1 auto; min-height: 0; }
-#graph { position: absolute; top: 0; left: 0; pointer-events: none; }
+#graph { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1; }
 #commitList { list-style: none; margin: 0; padding: 0; position: relative; }
 #commitList li {
   height: var(--row-h); display: flex; align-items: center; cursor: pointer;
@@ -91,11 +91,30 @@ body {
 #commitList li.selected { background: rgba(70,166,255,.14); }
 #commitList li.is-head .c-subject { font-weight: 600; }
 .c-spacer { flex: 0 0 auto; }
-.c-refs { display: flex; gap: 4px; margin-right: 8px; flex: 0 0 auto; }
+/* branch/tag column left of the graph */
+.c-refcol {
+  flex: 0 0 auto; position: relative; align-self: stretch; display: flex; align-items: center;
+  padding-left: 8px; border-right: 1px solid var(--line); background: rgba(0,0,0,.08);
+}
+.c-refs { display: flex; gap: 4px; align-items: center; min-width: 0; max-width: 100%; padding-right: 6px; }
+.c-refs .extra { display: none; }
+.c-refcol:hover .c-refs, body.ref-dragging .c-refcol:has(.drop-over) .c-refs {
+  position: absolute; left: 4px; top: 2px; z-index: 5; flex-wrap: wrap; max-width: 380px; width: max-content;
+  padding: 3px 5px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+.c-refcol:hover .c-refs .extra, body.ref-dragging .c-refcol:has(.drop-over) .extra { display: inline-block; }
+.c-refcol:hover .c-more, body.ref-dragging .c-refcol:has(.drop-over) .c-more { display: none; }
+.c-more { font-size: 10px; color: var(--fg-dim); background: var(--bg3); border-radius: 9px; padding: 0 5px; flex: 0 0 auto; }
 .c-chip {
   font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600;
-  border: 1px solid transparent; white-space: nowrap;
+  border: 1px solid transparent; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  cursor: grab;
 }
+.c-chip:active { cursor: grabbing; }
+/* drag & drop */
+body.ref-dragging .c-chip, body.ref-dragging .reflist li[draggable] { outline: 1px dashed rgba(70,166,255,.35); outline-offset: 1px; }
+.drop-over { outline: 2px solid var(--accent) !important; outline-offset: 1px; background-color: rgba(70,166,255,.22) !important; }
 .c-chip.local { background: rgba(70,166,255,.16); color: #9fc8ff; border-color: rgba(70,166,255,.4); }
 .c-chip.remote { background: rgba(160,160,180,.12); color: #b9c0cf; border-color: rgba(160,160,180,.3); }
 .c-chip.tag { background: rgba(240,180,87,.14); color: #f0b457; border-color: rgba(240,180,87,.4); }
@@ -259,3 +278,16 @@ body.busy .tb, body.busy .wa-grid button { cursor: progress; }
 .remotebar { margin-left: auto; }
 .remotebar:not([hidden]) + .repopick { margin-left: 0; }
 .wa-col-head > span:first-child { white-space: nowrap; }
+
+/* scrollbars: faint by default, visible on hover or while scrolling */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: rgba(160,170,190,.07); border-radius: 8px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+:hover::-webkit-scrollbar-thumb, .sb-hover::-webkit-scrollbar-thumb, .scrolling::-webkit-scrollbar-thumb { background-color: rgba(160,170,190,.32); }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(160,170,190,.55); border-width: 2px; }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: rgba(160,170,190,.25) transparent; }
+}

@@ -81,7 +81,8 @@
 | `POST /api/branch` | `{ name, start?, checkout? }` | — | `{ name }` |
 | `POST /api/branch/delete` | `{ name }` | 2단계(미병합은 high) | `{ name, merged }` |
 | `POST /api/checkout` | `{ ref, detach? }` | — | `{ branch }` / `{ branch, tracking }` / `{ detached }` |
-| `POST /api/merge` | `{ ref, noFF?, ffOnly? }` | — | `{ fastForward, upToDate }` |
+| `POST /api/merge` | `{ ref, into?, noFF?, ffOnly? }` | — | `{ into, switched, fastForward, upToDate }` |
+| `POST /api/rebase` | `{ branch, onto }` | 이미 upstream에 올라간 커밋을 다시 쓸 때만 2단계(high) | `{ branch, onto, rewritten, hash }` / `{ upToDate }` |
 | `POST /api/op/abort` | `{}` | — | `{ aborted }` |
 | `POST /api/op/continue` | `{}` | — | `{ continued }` |
 | `POST /api/reset` | `{ target, mode: soft\|mixed\|hard }` | hard만 2단계(high) | `{ mode, target }` |
@@ -111,6 +112,8 @@
 - **checkout**: 진행 중 작업이 없고 작업 트리가 깨끗해야 한다(새 파일은 허용).
   - 로컬 브랜치 이름 → 그 브랜치. 원격 브랜치(`origin/foo`) → 로컬 `foo`가 있으면 그것, 없으면 `git checkout -b foo --track origin/foo`. 그 밖의 리비전 또는 `detach: true` → detached HEAD.
 - **merge**: `git merge --no-edit [--ff-only|--no-ff] --end-of-options <ref>`. 충돌 시 409 `CONFLICT`, 저장소는 merge 상태로 남는다 → `/api/op/abort` 또는 충돌 해결·스테이징 후 `/api/op/continue`.
+- **merge `into`**: 로컬 브랜치 이름. 현재 브랜치와 다르면 — 이미 포함됐으면 `upToDate`, fast-forward 가능하고 `noFF`가 아니면 `git update-ref`로 체크아웃 없이 이동, 그 밖은(`ffOnly`면 409 `PRECHECK_FAILED`) 깨끗한 작업 트리를 확인한 뒤 `into`를 체크아웃하고 머지한다(`switched: true`).
+- **rebase**: `git rebase <onto의 커밋 oid> <branch>`. `onto`가 이미 `branch`의 조상이면 아무것도 하지 않고 `upToDate`. 깨끗한 작업 트리가 필요하다. `branch`에 upstream이 있고 다시 쓰는 커밋(`onto..branch`) 중 upstream에 있는 것이 있으면 확인 토큰을 요구한다. 충돌 시 409 `CONFLICT`, 저장소는 rebase 상태 → `/api/op/continue`(`git rebase --continue`) 또는 `/api/op/abort`.
 - **op/continue**: 충돌이 남아 있으면 422. merge는 `git commit --no-edit`, 그 밖은 `git <op> --continue`.
 - **reset**: `git reset -q --<mode> <target>`. hard는 사라질 변경 목록을 `confirm.details`로 보여준다.
 - **revert / cherry-pick**: 깨끗한 작업 트리 필요. 머지 커밋이면 `-m <mainline>`(기본 1). 충돌 시 409 `CONFLICT`.

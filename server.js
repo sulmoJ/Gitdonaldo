@@ -590,17 +590,82 @@ async function opCheckout(repo, body) {
   return { detached: oid };
 }
 
+async function currentBranchName(repo) {
+  return git(repo, ['symbolic-ref', '--quiet', '--short', 'HEAD']).then((s) => s.trim(), () => '');
+}
+
+async function isAncestor(repo, a, b) {
+  return git(repo, ['merge-base', '--is-ancestor', a, b]).then(() => true, () => false);
+}
+
+/**
+ * Merge `ref` into `into` (a local branch; default: the current branch).
+ * When `into` is not checked out: a fast-forward moves the branch ref without touching the
+ * work tree; otherwise `into` is checked out first and the merge runs there.
+ */
 async function opMerge(repo, body) {
   const ref = revName(body.ref, 'ref');
-  await resolveCommit(repo, ref);
+  const refOid = await resolveCommit(repo, ref);
   await requireNoOp(repo);
-  await requireClean(repo, '머지');
+  const current = await currentBranchName(repo);
+  let into = null;
+  if (body.into != null && body.into !== '') {
+    into = await validBranchName(repo, body.into);
+    if (!(await refExists(repo, `refs/heads/${into}`))) throw badRequest(`no such branch: ${into}`);
+  }
+  let switched = false;
+  if (into && into !== current) {
+    const intoOid = (await git(repo, ['rev-parse', `refs/heads/${into}`])).trim();
+    if (intoOid === refOid || await isAncestor(repo, refOid, intoOid)) return { into, upToDate: true, fastForward: false, switched };
+    if (!body.noFF && await isAncestor(repo, intoOid, refOid)) {
+      await git(repo, ['update-ref', '-m', `merge ${ref}: Fast-forward`, `refs/heads/${into}`, refOid, intoOid])
+        .catch((e) => { throw gitFailure(e, 'fast-forward에 실패했습니다.'); });
+      return { into, fastForward: true, upToDate: false, switched };
+    }
+    if (body.ffOnly) throw new ApiError(409, 'PRECHECK_FAILED', `${into}을(를) ${ref}(으)로 fast-forward 할 수 없습니다(갈라진 기록).`);
+    await requireClean(repo, '머지 대상 브랜치로 전환');
+    await git(repo, ['checkout', '-q', into, '--']).catch((e) => { throw gitFailure(e, '체크아웃에 실패했습니다.'); });
+    switched = true;
+  } else {
+    await requireClean(repo, '머지');
+  }
   const args = ['merge', '--no-edit'];
   if (body.ffOnly) args.push('--ff-only');
   else if (body.noFF) args.push('--no-ff');
   args.push('--end-of-options', ref);
   const r = await runMayConflict(repo, args, '머지');
-  return { fastForward: /Fast-forward/.test(r.stdout), upToDate: /Already up to date/i.test(r.stdout) };
+  return { into: into || current || null, switched, fastForward: /Fast-forward/.test(r.stdout), upToDate: /Already up to date/i.test(r.stdout) };
+}
+
+/**
+ * Rebase local branch `branch` onto `onto` (git rebase <onto> <branch>; leaves `branch` checked out).
+ * Rewriting commits that are already on the branch's upstream needs a confirm token.
+ */
+async function opRebase(ctx) {
+  const { repo, body } = ctx;
+  const branch = await validBranchName(repo, body.branch);
+  if (!(await refExists(repo, `refs/heads/${branch}`))) throw badRequest(`no such branch: ${branch}`);
+  const onto = revName(body.onto, 'onto');
+  const ontoOid = await resolveCommit(repo, onto);
+  await requireNoOp(repo);
+  const head = `refs/heads/${branch}`;
+  if (await isAncestor(repo, ontoOid, head)) return { branch, onto, upToDate: true };
+  await requireClean(repo, '리베이스');
+  const rewrite = Number((await git(repo, ['rev-list', '--count', head, `^${ontoOid}`])).trim());
+  const upstream = await git(repo, ['rev-parse', '--abbrev-ref', `${branch}@{u}`]).then((s) => s.trim(), () => '');
+  if (upstream && rewrite > 0) {
+    const local = Number((await git(repo, ['rev-list', '--count', head, `^${ontoOid}`, `^${upstream}`])).trim());
+    const published = rewrite - local;
+    if (published > 0) {
+      await requireConfirm(ctx, 'rebase-published', { branch, onto: ontoOid }, {
+        title: `${branch}을(를) ${onto} 위로 리베이스`,
+        message: `다시 쓰는 커밋 ${rewrite}개 중 ${published}개는 이미 ${upstream}에 올라가 있습니다. 리베이스 후에는 force push가 필요하고, 같은 브랜치를 쓰는 사람에게 영향을 줍니다.`,
+        risk: 'high', action: '리베이스',
+      });
+    }
+  }
+  await runMayConflict(repo, ['rebase', ontoOid, branch], '리베이스');
+  return { branch, onto, rewritten: rewrite, hash: (await git(repo, ['rev-parse', head])).trim() };
 }
 
 async function opAbort(repo) {
@@ -797,6 +862,7 @@ const WRITES = {
   '/api/branch/delete': (c) => opBranchDelete(c),
   '/api/checkout': (c) => opCheckout(c.repo, c.body),
   '/api/merge': (c) => opMerge(c.repo, c.body),
+  '/api/rebase': (c) => opRebase(c),
   '/api/op/abort': (c) => opAbort(c.repo),
   '/api/op/continue': (c) => opContinue(c.repo),
   '/api/reset': (c) => opReset(c),

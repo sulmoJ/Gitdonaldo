@@ -66,14 +66,14 @@ row  커밋   parents   lanes(처리 후)     lane
 
 | 순서 | 클래스 | 내용 | 폭 |
 |---|---|---|---|
-| 1 | `c-spacer` | 빈 칸(그래프 자리) | 그래프 폭 |
-| 2 | `c-refs` | 이 커밋을 가리키는 ref 칩들 | 내용만큼 |
+| 1 | `c-refcol` | 브랜치·태그 컬럼: 이 커밋을 가리키는 ref 칩(`c-refs`) | `REFCOL_W`(168px) |
+| 2 | `c-spacer` | 빈 칸(그래프 자리) | 그래프 폭 |
 | 3 | `c-subject` | 커밋 제목, 넘치면 말줄임 | 나머지 전부 |
 | 4 | `c-author` | 작성자 이름, 오른쪽 정렬 | 120px |
 | 5 | `c-date` | 작성 날짜 | 92px |
 | 6 | `c-hash` | 해시 앞 7자, 고정폭 글꼴 | 64px |
 
-- SVG는 `#graphScroll` 안에서 `position: absolute; top:0; left:0`, `pointer-events: none`으로 목록 위에 겹친다. 같은 스크롤 컨테이너 안이라 함께 스크롤된다.
+- SVG는 `#graphScroll` 안에서 `position: absolute; top:0; left:REFCOL_W`, `pointer-events: none`으로 목록 위에 겹친다. ref가 있는 커밋은 컬럼 경계에서 노드까지 점선(레인 색, 45% 불투명)을 긋는다. 같은 스크롤 컨테이너 안이라 함께 스크롤된다.
 - 행에 마우스를 올리면 옅은 배경, 선택하면 파란 배경(`rgba(70,166,255,.14)`).
 - 행 클릭 → [커밋 상세](./commit-detail.md)
 
@@ -89,6 +89,10 @@ row  커밋   parents   lanes(처리 후)     lane
 | `tag` | `tag` | `🏷 태그명` | 주황 |
 
 `isHead`가 `type`보다 우선한다.
+
+- 칩은 그래프 **왼쪽** 브랜치·태그 컬럼에 놓인다. 정렬: 현재 브랜치 → 로컬 → 원격 → 태그. `origin/HEAD`는 숨긴다.
+- 첫 칩만 보이고 나머지는 `+N` 알약으로 줄인다. 셀에 마우스를 올리면(또는 드래그 중 그 셀이 드롭 대상이면) 모든 칩이 떠 있는 패널로 펼쳐진다.
+- 칩은 드래그할 수 있다. 다른 칩이나 사이드바 항목에 놓으면 두 ref 사이 작업 메뉴가 뜬다([git-actions](./git-actions.md#드래그앤드롭-두-ref-사이-작업)).
 
 ### 날짜 표시 `shortDate(iso)`
 

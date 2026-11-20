@@ -1,6 +1,8 @@
 'use strict';
 
 const LANE_W = 18, ROW_H = 28, PAD = 14, NODE_R = 5;
+// Width of the branch/tag column drawn to the left of the graph.
+const REFCOL_W = 168;
 const LANE_COLORS = [
   '#46a6ff', '#6ee7b7', '#f0b457', '#f0768b', '#b98cf0',
   '#4fd1c5', '#f6ad55', '#a0aec0', '#63b3ed', '#9ae6b4',
@@ -97,8 +99,9 @@ function layout(commits) {
 
 const laneX = (k) => PAD + k * LANE_W;
 
-function drawGraph(rows, laneCount) {
+function drawGraph(rows, laneCount, refHashes = new Set()) {
   const svg = $('graph');
+  svg.style.left = REFCOL_W + 'px';
   const width = PAD * 2 + laneCount * LANE_W;
   const height = rows.length * ROW_H + ROW_H;
   svg.setAttribute('width', width);
@@ -124,6 +127,13 @@ function drawGraph(rows, laneCount) {
         out += `<path d="M${x1},${y1} C${x1},${my} ${x2},${y2 - ROW_H * 0.5} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="2"/>`;
       }
     }
+  }
+
+  // Dashed connector from the ref column to the node of every commit that has refs.
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!refHashes.has(r.commit.hash)) continue;
+    out += `<line x1="0" y1="${yOf(i)}" x2="${laneX(r.lane) - NODE_R - 2}" y2="${yOf(i)}" stroke="${laneColor(r.lane)}" stroke-opacity=".45" stroke-width="1" stroke-dasharray="2 3"/>`;
   }
 
   for (let i = 0; i < rows.length; i++) {
@@ -445,6 +455,123 @@ function stashMenu(e, s) {
   ]);
 }
 
+// ---- drag & drop between refs ----------------------------------------------------------
+
+/** origin/HEAD is a symref duplicate of the remote default branch: hidden everywhere. */
+const isListedRef = (r) => !(r.type === 'remote' && /\/HEAD$/.test(r.refname));
+const refOid = (r) => r.target || r.oid;
+let dragRef = null;
+
+/**
+ * Is commit `a` an ancestor of (or equal to) commit `b`? Walks the loaded history only:
+ * returns null when either commit is outside it (unknown).
+ */
+function isAncestorLoaded(a, b) {
+  const parents = new Map(state.commits.map((c) => [c.hash, c.parents]));
+  if (!parents.has(a) || !parents.has(b)) return null;
+  const seen = new Set([b]);
+  const stack = [b];
+  while (stack.length) {
+    const h = stack.pop();
+    if (h === a) return true;
+    for (const p of parents.get(h) || []) if (!seen.has(p) && parents.has(p)) { seen.add(p); stack.push(p); }
+  }
+  return false;
+}
+
+function makeRefDraggable(node, ref) {
+  node.draggable = true;
+  node.dataset.refname = ref.refname;
+  node.addEventListener('dragstart', (e) => {
+    dragRef = ref;
+    hideMenu();
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ref.short);
+    document.body.classList.add('ref-dragging');
+  });
+  node.addEventListener('dragend', () => {
+    dragRef = null;
+    document.body.classList.remove('ref-dragging');
+    document.querySelectorAll('.drop-over').forEach((n) => n.classList.remove('drop-over'));
+  });
+  const accepts = () => dragRef && dragRef.refname !== ref.refname;
+  node.addEventListener('dragover', (e) => {
+    if (!accepts()) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    node.classList.add('drop-over');
+  });
+  node.addEventListener('dragleave', () => node.classList.remove('drop-over'));
+  node.addEventListener('drop', (e) => {
+    node.classList.remove('drop-over');
+    if (!accepts()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const src = dragRef;
+    dragRef = null;
+    openMenu(e.clientX, e.clientY, dropMenu(src, ref));
+  });
+}
+
+const refLabel = (r) => (r.type === 'tag' ? `🏷 ${r.short}` : r.short);
+
+function mergeRefInto(src, dst, opts = {}) {
+  runWrite('/api/merge', { ref: src.refname, into: dst.short, ...opts }, {
+    label: 'merge',
+    success: (r) => (r.upToDate ? `${dst.short}은(는) 이미 ${src.short}을(를) 포함합니다`
+      : `${src.short} → ${dst.short} ${r.fastForward ? 'fast-forward' : '머지'} 완료${r.switched ? ` · ${dst.short}(으)로 전환` : ''}`),
+  });
+}
+
+function rebaseRefOnto(branch, onto) {
+  runWrite('/api/rebase', { branch: branch.short, onto: onto.refname }, {
+    label: 'rebase',
+    success: (r) => (r.upToDate ? `${branch.short}은(는) 이미 ${onto.short} 위에 있습니다` : `${branch.short}을(를) ${onto.short} 위로 리베이스 (${r.rewritten}개 커밋)`),
+  });
+}
+
+/** Actions that relate two refs: `src` was dragged and dropped on `dst`. */
+function dropMenu(src, dst) {
+  const cur = currentBranch();
+  const items = [{ header: `${refLabel(src)}  →  ${refLabel(dst)}` }];
+
+  const mergeItems = (from, into) => {
+    if (into.type !== 'local') return [];
+    const same = refOid(from) === refOid(into);
+    const contained = same || isAncestorLoaded(refOid(from), refOid(into)) === true;
+    const canFF = !same && isAncestorLoaded(refOid(into), refOid(from)) === true;
+    const via = into.short === cur || canFF ? '' : ` (${into.short} 체크아웃)`;
+    if (contained) return [{ label: `${from.short}을(를) ${into.short}에 머지 — 이미 포함됨`, disabled: true, action: () => {} }];
+    const out = [];
+    if (canFF) out.push({ label: `${into.short}을(를) ${from.short}(으)로 fast-forward`, action: () => mergeRefInto(from, into, { ffOnly: true }) });
+    out.push({
+      label: canFF ? `${from.short}을(를) ${into.short}에 머지 (merge commit${into.short === cur ? '' : `, ${into.short} 체크아웃`})` : `${from.short}을(를) ${into.short}에 머지${via}`,
+      action: () => mergeRefInto(from, into, canFF ? { noFF: true } : {}),
+    });
+    return out;
+  };
+  const rebaseItems = (branch, onto) => {
+    if (branch.type !== 'local') return [];
+    const done = isAncestorLoaded(refOid(onto), refOid(branch)) === true;
+    const via = branch.short === cur ? '' : ` (${branch.short} 체크아웃)`;
+    return [{
+      label: `${branch.short}을(를) ${onto.short} 위로 리베이스${done ? ' — 이미 위에 있음' : via}`,
+      disabled: done,
+      action: () => rebaseRefOnto(branch, onto),
+    }];
+  };
+
+  const forward = [...mergeItems(src, dst), ...rebaseItems(src, dst)];
+  const reverse = [...mergeItems(dst, src), ...rebaseItems(dst, src)];
+  items.push(...forward);
+  if (forward.length && reverse.length) items.push('-');
+  items.push(...reverse);
+  if (!forward.length && !reverse.length) {
+    items.push({ label: '로컬 브랜치가 하나는 있어야 머지·리베이스할 수 있습니다', disabled: true, action: () => {} });
+  }
+  return items;
+}
+
 // ---- commit list & detail ----------------------------------------------------------------
 
 function refsByCommit(refs) {
@@ -457,9 +584,21 @@ function refsByCommit(refs) {
   return m;
 }
 
+const REF_ORDER = { local: 1, remote: 2, tag: 3 };
+const refRank = (r) => (r.isHead ? 0 : REF_ORDER[r.type] || 9);
+
+function refChip(ref) {
+  const chip = el('span', 'c-chip ' + (ref.isHead ? 'head' : ref.type), ref.type === 'tag' ? '🏷 ' + ref.short : ref.short);
+  chip.title = `${ref.refname}\n드래그해서 다른 브랜치/태그에 놓기 · 더블클릭: 체크아웃 · 우클릭: 메뉴`;
+  chip.addEventListener('contextmenu', (e) => { e.stopPropagation(); refMenu(e, ref); });
+  chip.addEventListener('dblclick', (e) => { e.stopPropagation(); if (ref.type !== 'tag' && !ref.isHead) checkout(ref.short); });
+  makeRefDraggable(chip, ref);
+  return chip;
+}
+
 function renderList(rows, graphWidth, refs) {
   const ul = $('commitList');
-  const rmap = refsByCommit(refs);
+  const rmap = refsByCommit(refs.filter(isListedRef));
   ul.innerHTML = '';
   for (let i = 0; i < rows.length; i++) {
     const c = rows[i].commit;
@@ -468,18 +607,29 @@ function renderList(rows, graphWidth, refs) {
     li.style.height = ROW_H + 'px';
     if (state.repo && c.hash === state.repo.head) li.classList.add('is-head');
 
+    // Branch/tag column (left of the graph). First ref shown, the rest on hover.
+    const col = el('span', 'c-refcol');
+    col.style.width = REFCOL_W + 'px';
+    const here = (rmap.get(c.hash) || []).slice().sort((a, b) => refRank(a) - refRank(b));
+    if (here.length) {
+      const chips = el('span', 'c-refs');
+      here.forEach((ref, k) => {
+        const chip = refChip(ref);
+        if (k > 0) chip.classList.add('extra');
+        chips.appendChild(chip);
+      });
+      if (here.length > 1) {
+        const more = el('span', 'c-more', `+${here.length - 1}`);
+        more.title = here.slice(1).map((r) => r.short).join('\n');
+        chips.appendChild(more);
+      }
+      col.appendChild(chips);
+    }
+    li.appendChild(col);
+
     const spacer = el('span', 'c-spacer');
     spacer.style.width = graphWidth + 'px';
     li.appendChild(spacer);
-
-    const chips = el('span', 'c-refs');
-    for (const ref of (rmap.get(c.hash) || [])) {
-      const chip = el('span', 'c-chip ' + (ref.isHead ? 'head' : ref.type), ref.type === 'tag' ? '🏷 ' + ref.short : ref.short);
-      chip.addEventListener('contextmenu', (e) => { e.stopPropagation(); refMenu(e, ref); });
-      chip.addEventListener('dblclick', (e) => { e.stopPropagation(); if (ref.type !== 'tag' && !ref.isHead) checkout(ref.short); });
-      chips.appendChild(chip);
-    }
-    li.appendChild(chips);
 
     li.appendChild(el('span', 'c-subject', c.subject));
     li.appendChild(el('span', 'c-author', c.author));
@@ -528,7 +678,7 @@ function clearDetail() {
 function renderRefs(refs) {
   const groups = { local: [], remote: [], tag: [] };
   for (const r of refs) {
-    if (r.type === 'remote' && /\/HEAD$/.test(r.refname)) continue; // origin/HEAD symref
+    if (!isListedRef(r)) continue;
     groups[r.type]?.push(r);
   }
   const fill = (ulId, countId, arr, cls) => {
@@ -545,7 +695,8 @@ function renderRefs(refs) {
         if (ahead || behind) li.appendChild(el('span', 'ab', `${ahead ? '↑' + ahead : ''}${behind ? '↓' + behind : ''}`));
       }
       li.appendChild(el('span', 'mini', (r.target || r.oid).slice(0, 7)));
-      li.title = r.refname + (r.upstream ? ` → ${r.upstream}` : '') + '\n더블클릭: 체크아웃 · 우클릭: 메뉴';
+      li.title = r.refname + (r.upstream ? ` → ${r.upstream}` : '') + '\n더블클릭: 체크아웃 · 우클릭: 메뉴 · 드래그: 다른 ref에 놓아 머지/리베이스';
+      makeRefDraggable(li, r);
       li.addEventListener('click', () => {
         const target = r.target || r.oid;
         const row = document.querySelector(`#commitList li[data-hash="${target}"]`);
@@ -690,7 +841,8 @@ async function load() {
 
     renderStatusSummary(status);
     const { rows, laneCount } = layout(commits);
-    const gw = drawGraph(rows, laneCount);
+    const refHashes = new Set(refs.filter(isListedRef).map((r) => r.target || r.oid));
+    const gw = drawGraph(rows, laneCount, refHashes);
     renderList(rows, gw, refs);
     renderRefs(refs);
     renderStashes(stashes);
@@ -721,6 +873,22 @@ async function load() {
 }
 
 // ---- wiring ------------------------------------------------------------------------------
+
+// Scrollbars stay faint until hovered; show them while a container is scrolling (style.css).
+const scrollTimers = new WeakMap();
+document.addEventListener('scroll', (e) => {
+  const t = e.target === document ? document.documentElement : e.target;
+  if (!(t instanceof Element)) return;
+  t.classList.add('scrolling');
+  clearTimeout(scrollTimers.get(t));
+  scrollTimers.set(t, setTimeout(() => t.classList.remove('scrolling'), 900));
+}, true);
+// Chromium does not repaint a custom scrollbar when only :hover changes, so hover is a class too.
+for (const id of ['graphScroll', 'sidebar', 'detail', 'unstagedList', 'stagedList']) {
+  const n = $(id);
+  n.addEventListener('mouseenter', () => n.classList.add('sb-hover'));
+  n.addEventListener('mouseleave', () => n.classList.remove('sb-hover'));
+}
 
 $('refreshBtn').addEventListener('click', load);
 async function openRepoDialog() {

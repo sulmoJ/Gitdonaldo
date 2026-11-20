@@ -249,6 +249,77 @@ test('merge conflict → op state + abort; continue after resolving', async (t) 
   assert.strictEqual(r.g('rev-list', '--parents', '-n1', 'HEAD').trim().split(' ').length, 3);
 });
 
+test('merge into another branch: fast-forward without checkout, else switches', async (t) => {
+  const r = makeRepo();
+  const { post } = await serve(t, r.dir);
+  await post('/api/branch', { name: 'feature', checkout: true });
+  r.write('f.txt', 'f'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'f' });
+
+  // On feature, merge feature into main: main is behind → ref moves, HEAD stays.
+  const ff = await post('/api/merge', { ref: 'feature', into: 'main' });
+  assert.strictEqual(ff.status, 200, JSON.stringify(ff.body));
+  assert.deepStrictEqual([ff.body.result.fastForward, ff.body.result.switched], [true, false]);
+  assert.strictEqual(r.g('rev-parse', 'main').trim(), r.g('rev-parse', 'feature').trim());
+  assert.strictEqual(ff.body.snapshot.repo.currentBranch, 'feature');
+  assert.strictEqual((await post('/api/merge', { ref: 'feature', into: 'main' })).body.result.upToDate, true);
+
+  // Diverged: main gets its own commit, then merge feature into main from feature.
+  await post('/api/checkout', { ref: 'main' });
+  r.write('m.txt', 'm'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'm' });
+  await post('/api/checkout', { ref: 'feature' });
+  r.write('g.txt', 'g'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'g' });
+  assert.strictEqual((await post('/api/merge', { ref: 'feature', into: 'main', ffOnly: true })).status, 409);
+  const mc = await post('/api/merge', { ref: 'feature', into: 'main' });
+  assert.strictEqual(mc.status, 200, JSON.stringify(mc.body));
+  assert.strictEqual(mc.body.result.switched, true);
+  assert.strictEqual(mc.body.snapshot.repo.currentBranch, 'main');
+  assert.strictEqual(r.g('rev-list', '--parents', '-n1', 'HEAD').trim().split(' ').length, 3);
+
+  assert.strictEqual((await post('/api/merge', { ref: 'feature', into: 'nope' })).status, 400);
+});
+
+test('rebase branch onto ref; conflict → continue; published commits need a token', async (t) => {
+  const r = makeRepo();
+  const { post, get, confirmed } = await serve(t, r.dir);
+  await post('/api/branch', { name: 'topic', checkout: true });
+  r.write('t.txt', 't'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 't' });
+  await post('/api/checkout', { ref: 'main' });
+  r.write('m.txt', 'm'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'm' });
+
+  const rb = await post('/api/rebase', { branch: 'topic', onto: 'main' });
+  assert.strictEqual(rb.status, 200, JSON.stringify(rb.body));
+  assert.strictEqual(rb.body.snapshot.repo.currentBranch, 'topic');
+  assert.strictEqual(r.g('rev-parse', 'topic~1').trim(), r.g('rev-parse', 'main').trim());
+  assert.strictEqual((await post('/api/rebase', { branch: 'topic', onto: 'main' })).body.result.upToDate, true);
+  assert.strictEqual((await post('/api/rebase', { branch: '-x', onto: 'main' })).status, 400);
+  assert.strictEqual((await post('/api/rebase', { branch: 'topic', onto: '--exec=x' })).status, 400);
+
+  // Conflict
+  r.write('a.txt', 'topic\n'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'ta' });
+  await post('/api/checkout', { ref: 'main' });
+  r.write('a.txt', 'main\n'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'ma' });
+  const c = await post('/api/rebase', { branch: 'topic', onto: 'main' });
+  assert.strictEqual(c.status, 409, JSON.stringify(c.body));
+  assert.strictEqual(c.body.code, 'CONFLICT');
+  assert.strictEqual((await get('/api/op-state')).body.op, 'rebase');
+  r.write('a.txt', 'both\n'); await post('/api/stage', { paths: ['a.txt'] });
+  const cont = await post('/api/op/continue');
+  assert.strictEqual(cont.status, 200, JSON.stringify(cont.body));
+  assert.strictEqual((await get('/api/op-state')).body.op, null);
+  assert.strictEqual(r.g('rev-parse', 'topic~2').trim(), r.g('rev-parse', 'main').trim());
+
+  // Published: topic's commits are on its upstream → confirm token required.
+  const bare = tmp('gd-bare-');
+  execFileSync('git', ['init', '-q', '--bare', bare]);
+  r.g('remote', 'add', 'origin', bare);
+  r.g('push', '-q', '-u', 'origin', 'topic');
+  await post('/api/checkout', { ref: 'main' });
+  r.write('n.txt', 'n'); await post('/api/stage', { all: true }); await post('/api/commit', { message: 'n' });
+  const pub = await confirmed('/api/rebase', { branch: 'topic', onto: 'main' });
+  assert.strictEqual(pub.status, 200, JSON.stringify(pub.body));
+  assert.strictEqual(r.g('rev-parse', 'topic~2').trim(), r.g('rev-parse', 'main').trim());
+});
+
 test('reset: soft/mixed run directly, hard needs token + CONFIRM', async (t) => {
   const r = makeRepo();
   const { post } = await serve(t, r.dir);
