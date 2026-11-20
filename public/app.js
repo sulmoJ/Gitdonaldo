@@ -101,7 +101,6 @@ const laneX = (k) => PAD + k * LANE_W;
 
 function drawGraph(rows, laneCount, refHashes = new Set()) {
   const svg = $('graph');
-  svg.style.left = REFCOL_W + 'px';
   const width = PAD * 2 + laneCount * LANE_W;
   const height = rows.length * ROW_H + ROW_H;
   svg.setAttribute('width', width);
@@ -141,6 +140,7 @@ function drawGraph(rows, laneCount, refHashes = new Set()) {
     out += `<circle cx="${laneX(r.lane)}" cy="${yOf(i)}" r="${NODE_R}" fill="${laneColor(r.lane)}" stroke="#15171c" stroke-width="2"/>`;
   }
   svg.innerHTML = out;
+  $('refColSplit').style.height = Math.max(height, $('graphScroll').clientHeight) + 'px';
   return width;
 }
 
@@ -609,7 +609,6 @@ function renderList(rows, graphWidth, refs) {
 
     // Branch/tag column (left of the graph). First ref shown, the rest on hover.
     const col = el('span', 'c-refcol');
-    col.style.width = REFCOL_W + 'px';
     const here = (rmap.get(c.hash) || []).slice().sort((a, b) => refRank(a) - refRank(b));
     if (here.length) {
       const chips = el('span', 'c-refs');
@@ -862,6 +861,7 @@ function fileRow(f, side) {
 function renderWorkArea() {
   const st = state.status;
   $('workArea').hidden = !state.workOpen || !st;
+  $('workSplit').hidden = $('workArea').hidden;
   if (!st) return;
   const unstaged = st.files.filter((f) => f.unstaged);
   const staged = st.files.filter((f) => f.staged);
@@ -960,6 +960,67 @@ async function load() {
 }
 
 // ---- wiring ------------------------------------------------------------------------------
+
+// ---- resizable panes ---------------------------------------------------------------------
+
+/**
+ * Each splitter drives one CSS variable (px). `sign` is +1 when dragging right/down grows the
+ * pane, -1 when it shrinks it. Bounds may depend on the current layout, so they are functions.
+ */
+const PANE_KEY = 'gitdonaldo.panes';
+const layoutW = () => $('layout').clientWidth;
+const SPLITS = {
+  sidebar: { v: '--sidebar-w', axis: 'x', sign: 1, el: () => $('sidebar'), min: () => 150, max: () => Math.min(520, layoutW() - $('detail').offsetWidth - 320) },
+  detail: { v: '--detail-w', axis: 'x', sign: -1, el: () => $('detail'), min: () => 200, max: () => Math.min(720, layoutW() - $('sidebar').offsetWidth - 320) },
+  refcol: { v: '--refcol-w', axis: 'x', sign: 1, el: () => document.querySelector('.c-refcol') || { offsetWidth: REFCOL_W }, min: () => 60, max: () => 420 },
+  work: { v: '--work-h', axis: 'y', sign: -1, el: () => $('workArea'), min: () => 120, max: () => $('graphpane').clientHeight - 80 },
+  waLeft: { v: '--wa-left-w', axis: 'x', sign: 1, el: () => document.querySelector('.wa-col'), min: () => 180,
+    max: () => document.querySelector('.wa-grid').clientWidth - document.querySelector('.wa-commit').offsetWidth - 180 },
+  waCommit: { v: '--wa-commit-w', axis: 'x', sign: -1, el: () => document.querySelector('.wa-commit'), min: () => 200,
+    max: () => document.querySelector('.wa-grid').clientWidth - document.querySelector('.wa-col').offsetWidth - 180 },
+};
+const paneSizes = (() => { try { return JSON.parse(localStorage.getItem(PANE_KEY)) || {}; } catch { return {}; } })();
+const savePanes = () => { try { localStorage.setItem(PANE_KEY, JSON.stringify(paneSizes)); } catch { /* storage unavailable */ } };
+const rootStyle = document.documentElement.style;
+for (const [name, px] of Object.entries(paneSizes)) if (SPLITS[name] && Number.isFinite(px)) rootStyle.setProperty(SPLITS[name].v, px + 'px');
+
+for (const handle of document.querySelectorAll('.splitter[data-split]')) {
+  const name = handle.dataset.split;
+  const sp = SPLITS[name];
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const start = sp.axis === 'x' ? e.clientX : e.clientY;
+    const target = sp.el();
+    const base = sp.axis === 'x' ? target.offsetWidth : target.offsetHeight;
+    const min = sp.min(), max = Math.max(min, sp.max());
+    handle.classList.add('active');
+    document.body.classList.add('resizing', sp.axis === 'x' ? 'col-resize' : 'row-resize');
+    let size = base;
+    const move = (ev) => {
+      const d = (sp.axis === 'x' ? ev.clientX : ev.clientY) - start;
+      size = Math.round(Math.min(max, Math.max(min, base + sp.sign * d)));
+      rootStyle.setProperty(sp.v, size + 'px');
+    };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      handle.classList.remove('active');
+      document.body.classList.remove('resizing', 'col-resize', 'row-resize');
+      if (size !== base) { paneSizes[name] = size; savePanes(); }
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  });
+  handle.addEventListener('dblclick', () => {
+    rootStyle.removeProperty(sp.v);
+    delete paneSizes[name];
+    savePanes();
+  });
+}
 
 // Scrollbars stay faint until hovered; show them while a container is scrolling (style.css).
 const scrollTimers = new WeakMap();
