@@ -512,6 +512,34 @@ test('per-repo lock serializes concurrent writes', async (t) => {
   assert.strictEqual(r.g('diff', '--cached', '--name-only').trim().split('\n').length, 8);
 });
 
+test('reads never take index.lock (GIT_OPTIONAL_LOCKS=0), so they cannot break a concurrent write', async (t) => {
+  const r = makeRepo();
+  const { get, post } = await serve(t, r.dir);
+  // Every git process the server starts must run with GIT_OPTIONAL_LOCKS=0: put a recording
+  // wrapper named `git` first on PATH and read back what it saw.
+  const bin = tmp('gd-gitwrap-');
+  const realGit = execFileSync('sh', ['-c', 'command -v git']).toString().trim();
+  const logFile = path.join(bin, 'log');
+  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh\necho "$GIT_OPTIONAL_LOCKS" >> "${logFile}"\nexec "${realGit}" "$@"\n`, { mode: 0o755 });
+  const oldPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${oldPath}`;
+  try {
+    assert.strictEqual((await get('/api/status')).status, 200);
+  } finally {
+    process.env.PATH = oldPath;
+  }
+  const seen = fs.readFileSync(logFile, 'utf8').trim().split('\n');
+  assert.ok(seen.length > 0 && seen.every((v) => v === '0'), JSON.stringify(seen));
+
+  // And a read racing many writes never makes one of them fail.
+  for (let i = 0; i < 12; i++) r.write(`n${i}.txt`, String(i));
+  const [writes] = await Promise.all([
+    Promise.all(Array.from({ length: 12 }, (_, i) => post('/api/stage', { paths: [`n${i}.txt`] }))),
+    Promise.all(Array.from({ length: 12 }, () => get('/api/status'))),
+  ]);
+  assert.ok(writes.every((x) => x.status === 200), JSON.stringify(writes.map((x) => x.body.error)));
+});
+
 test('writes require POST + application/json (CSRF guard)', async (t) => {
   const r = makeRepo();
   const { app } = await serve(t, r.dir);

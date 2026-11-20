@@ -54,6 +54,9 @@ const GIT_ENV = {
   GIT_SEQUENCE_EDITOR: 'true',
   GIT_MERGE_AUTOEDIT: 'no',
   GIT_PAGER: 'cat',
+  // Reads (status, snapshots) run outside the per-repo write lock. Without this, `git status`
+  // briefly takes index.lock to refresh stat info, and a concurrent `git add` fails on it.
+  GIT_OPTIONAL_LOCKS: '0',
   LC_ALL: 'C',
   LANGUAGE: 'C',
 };
@@ -993,11 +996,13 @@ function createHandler({ defaultRepo, token = null, allowedHosts = null }) {
 
       if (write) {
         const repoTop = await toplevel(repo);
-        const result = await withLock(repoTop, async () => {
+        // Snapshot inside the lock so it shows the state right after this write, not a later one.
+        const out = await withLock(repoTop, async () => {
           const ctx = { repo: repoTop, repoTop, body };
-          return (await write(ctx)) || {};
+          const result = (await write(ctx)) || {};
+          return { result, snapshot: await snapshot(repoTop) };
         });
-        return sendJSON(res, 200, { ok: true, result, snapshot: await snapshot(repoTop) });
+        return sendJSON(res, 200, { ok: true, ...out });
       }
 
       if (p === '/api/repo') return sendJSON(res, 200, await apiRepo(repo));
