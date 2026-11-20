@@ -675,38 +675,125 @@ function clearDetail() {
 
 // ---- sidebar -----------------------------------------------------------------------------
 
+// Expanded/collapsed state of sidebar sections and branch folders, kept per viewer.
+// Keys: "sec:<local|remote|tag|stash>" and "dir:<type>:<folder path>". Missing = default.
+const SIDEBAR_KEY = 'gitdonaldo.sidebar.expanded';
+const sidebarOpen = (() => {
+  try { return JSON.parse(localStorage.getItem(SIDEBAR_KEY)) || {}; } catch { return {}; }
+})();
+function setOpen(key, open) {
+  sidebarOpen[key] = open;
+  try { localStorage.setItem(SIDEBAR_KEY, JSON.stringify(sidebarOpen)); } catch { /* storage unavailable */ }
+}
+/** Sections start collapsed; a folder starts open only if it holds the current branch. */
+const isOpen = (key, fallback = false) => (key in sidebarOpen ? sidebarOpen[key] : fallback);
+
+function applySection(sec) {
+  const node = document.querySelector(`.sec[data-sec="${sec}"]`);
+  const open = isOpen(`sec:${sec}`);
+  node.classList.toggle('collapsed', !open);
+  node.querySelector('.sec-toggle').setAttribute('aria-expanded', String(open));
+}
+
+/** While dragging a ref, hovering a closed section/folder for a moment opens it. */
+function springOpen(node, open) {
+  let timer = null;
+  node.addEventListener('dragover', (e) => {
+    if (!dragRef) return;
+    e.preventDefault();
+    if (!timer) timer = setTimeout(open, 600);
+  });
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  node.addEventListener('dragleave', cancel);
+  node.addEventListener('drop', cancel);
+}
+
+for (const node of document.querySelectorAll('.sec')) {
+  const sec = node.dataset.sec;
+  const head = node.querySelector('.sec-toggle');
+  const toggle = () => { setOpen(`sec:${sec}`, !isOpen(`sec:${sec}`)); applySection(sec); };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  springOpen(head, () => { if (!isOpen(`sec:${sec}`)) toggle(); });
+  applySection(sec);
+}
+
+/** Split refs into a folder tree on "/". Remote refs naturally group under their remote. */
+function refTree(refs) {
+  const root = { dirs: new Map(), leaves: [] };
+  for (const r of refs) {
+    const parts = r.short.split('/');
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const path = parts.slice(0, i + 1).join('/');
+      if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], { name: parts[i], path, dirs: new Map(), leaves: [], count: 0, hasHead: false });
+      node = node.dirs.get(parts[i]);
+      node.count++;
+      if (r.isHead) node.hasHead = true;
+    }
+    node.leaves.push({ ref: r, name: parts[parts.length - 1] });
+  }
+  return root;
+}
+
+function refRow(r, name, depth) {
+  const li = el('li', 'ref');
+  li.style.paddingLeft = `${8 + depth * 14}px`;
+  if (r.isHead) li.classList.add('head');
+  li.appendChild(el('span', `dot ${r.type === 'tag' ? 'tag' : (r.isHead ? 'head' : 'branch')}`));
+  li.appendChild(el('span', 'label', name));
+  if (r.isHead && state.aheadBehind && !state.aheadBehind.noUpstream) {
+    const { ahead, behind } = state.aheadBehind;
+    if (ahead || behind) li.appendChild(el('span', 'ab', `${ahead ? '↑' + ahead : ''}${behind ? '↓' + behind : ''}`));
+  }
+  li.appendChild(el('span', 'mini', (r.target || r.oid).slice(0, 7)));
+  li.title = r.refname + (r.upstream ? ` → ${r.upstream}` : '') + '\n더블클릭: 체크아웃 · 우클릭: 메뉴 · 드래그: 다른 ref에 놓아 머지/리베이스';
+  makeRefDraggable(li, r);
+  li.addEventListener('click', () => {
+    const target = r.target || r.oid;
+    const row = document.querySelector(`#commitList li[data-hash="${target}"]`);
+    if (row) { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); row.click(); }
+    else toast(`${r.short}의 커밋은 불러온 ${state.commits.length}개 밖에 있습니다.`, 'warn');
+  });
+  li.addEventListener('dblclick', () => { if (r.type !== 'tag' && !r.isHead) checkout(r.short); });
+  li.addEventListener('contextmenu', (e) => refMenu(e, r));
+  return li;
+}
+
+function renderTree(ul, node, type, depth) {
+  const dirs = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name));
+  for (const d of dirs) {
+    const key = `dir:${type}:${d.path}`;
+    const open = isOpen(key, d.hasHead);
+    const li = el('li', `folder${open ? ' open' : ''}${d.hasHead ? ' has-head' : ''}`);
+    li.style.paddingLeft = `${8 + depth * 14}px`;
+    li.dataset.path = d.path;
+    li.setAttribute('aria-expanded', String(open));
+    li.appendChild(el('span', 'caret', '▸'));
+    li.appendChild(el('span', 'folder-icon', open ? '📂' : '📁'));
+    li.appendChild(el('span', 'label', d.name));
+    li.appendChild(el('span', 'mini', String(d.count)));
+    li.title = `${d.path}/ — ${d.count}개`;
+    const toggle = () => { setOpen(key, !isOpen(key, d.hasHead)); renderRefs(state.refs); };
+    li.addEventListener('click', toggle);
+    springOpen(li, () => { if (!isOpen(key, d.hasHead)) toggle(); });
+    ul.appendChild(li);
+    if (open) renderTree(ul, d, type, depth + 1);
+  }
+  for (const { ref, name } of node.leaves) ul.appendChild(refRow(ref, type === 'tag' ? ref.short : name, depth));
+}
+
 function renderRefs(refs) {
   const groups = { local: [], remote: [], tag: [] };
   for (const r of refs) {
     if (!isListedRef(r)) continue;
     groups[r.type]?.push(r);
   }
-  const fill = (ulId, countId, arr, cls) => {
+  const fill = (ulId, countId, arr, type) => {
     const ul = $(ulId); ul.innerHTML = '';
     $(countId).textContent = arr.length;
-    for (const r of arr) {
-      const li = document.createElement('li');
-      if (r.isHead) li.classList.add('head');
-      const dot = el('span', `dot ${cls === 'tag' ? 'tag' : (r.isHead ? 'head' : 'branch')}`);
-      li.appendChild(dot);
-      li.appendChild(el('span', 'label', r.short));
-      if (r.isHead && state.aheadBehind && !state.aheadBehind.noUpstream) {
-        const { ahead, behind } = state.aheadBehind;
-        if (ahead || behind) li.appendChild(el('span', 'ab', `${ahead ? '↑' + ahead : ''}${behind ? '↓' + behind : ''}`));
-      }
-      li.appendChild(el('span', 'mini', (r.target || r.oid).slice(0, 7)));
-      li.title = r.refname + (r.upstream ? ` → ${r.upstream}` : '') + '\n더블클릭: 체크아웃 · 우클릭: 메뉴 · 드래그: 다른 ref에 놓아 머지/리베이스';
-      makeRefDraggable(li, r);
-      li.addEventListener('click', () => {
-        const target = r.target || r.oid;
-        const row = document.querySelector(`#commitList li[data-hash="${target}"]`);
-        if (row) { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); row.click(); }
-        else toast(`${r.short}의 커밋은 불러온 ${state.commits.length}개 밖에 있습니다.`, 'warn');
-      });
-      li.addEventListener('dblclick', () => { if (r.type !== 'tag' && !r.isHead) checkout(r.short); });
-      li.addEventListener('contextmenu', (e) => refMenu(e, r));
-      ul.appendChild(li);
-    }
+    // Tags stay flat (names like v1.0 rarely use "/"); branches fold on "/".
+    renderTree(ul, type === 'tag' ? { dirs: new Map(), leaves: arr.map((r) => ({ ref: r, name: r.short })) } : refTree(arr), type, 0);
   };
   fill('localRefs', 'localCount', groups.local, 'local');
   fill('remoteRefs', 'remoteCount', groups.remote, 'remote');

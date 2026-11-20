@@ -1,6 +1,6 @@
 # 사이드바: 작업 트리 상태와 ref 목록
 
-근거: `public/index.html:21-38`, `public/app.js:200-233`, `public/app.js:250-253`
+근거: `public/index.html`의 `#sidebar`, `public/app.js`의 `renderRefs`, `refTree`, `renderTree`, `applySection`
 
 ## WORKING DIR
 
@@ -17,6 +17,22 @@
 ## 우클릭·더블클릭
 
 브랜치·태그 우클릭 메뉴와 더블클릭 체크아웃은 [git-actions](./git-actions.md#컨텍스트-메뉴-우클릭). 사이드바 맨 아래 STASHES 목록도 같은 문서에 있다.
+
+## 섹션 접기
+
+LOCAL / REMOTE / TAGS / STASHES 섹션은 **기본적으로 접혀 있다**. 제목(▸ 삼각형 + 이름 + 개수)을 클릭하거나 Enter/Space로 펼치고 접는다. WORKING DIR은 접지 않는다.
+
+- 펼침 상태는 브라우저 `localStorage`(`gitdonaldo.sidebar.expanded`)에 viewer별로 저장해 새로고침·재실행 후에도 유지한다. 저장소를 쓸 수 없으면 기본값(접힘)으로 동작한다.
+- ref를 드래그하는 중 접힌 섹션 제목이나 폴더 위에 0.6초 머무르면 자동으로 펼쳐진다(드롭 대상을 찾기 위해).
+
+## 브랜치 폴더 (`/` 기준)
+
+로컬·원격 브랜치는 이름을 `/`로 나눠 폴더 트리로 보여준다. 원격은 `origin/feature/x` → `origin` ▸ `feature` ▸ `x`처럼 원격 이름이 최상위 폴더가 된다. 태그는 평평한 목록 그대로다.
+
+- 폴더 행: `[▸] [📁/📂] [이름] ……… [하위 브랜치 수]`, 같은 단계에서 폴더가 먼저, 그다음 브랜치. 폴더는 이름순.
+- 깊이마다 14px 들여쓴다. 브랜치 행에는 마지막 경로 조각만 표시하고, 툴팁에 전체 ref 이름.
+- 폴더 기본값은 접힘. 단, 현재 브랜치를 담은 폴더는 기본으로 펼쳐지며, 접혀 있으면 폴더 이름이 초록색으로 표시된다.
+- 폴더를 클릭하면 펼치고 접는다(상태는 위와 같은 저장소, 키 `dir:<type>:<경로>`).
 
 ## LOCAL / REMOTE / TAGS
 

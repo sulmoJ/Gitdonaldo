@@ -291,3 +291,20 @@ body.busy .tb, body.busy .wa-grid button { cursor: progress; }
 @supports not selector(::-webkit-scrollbar) {
   * { scrollbar-width: thin; scrollbar-color: rgba(160,170,190,.25) transparent; }
 }
+
+/* collapsible sidebar sections and branch folders */
+.sec-toggle { cursor: pointer; user-select: none; border-radius: 4px; margin-left: -4px !important; padding: 2px 4px; }
+.sec-toggle:hover { color: var(--fg); background: var(--bg3); }
+.sec-toggle:focus-visible { outline: 1px solid var(--accent); }
+.caret {
+  display: inline-block; width: 0; height: 0; flex: 0 0 auto; margin: 0 3px 0 2px; font-size: 0;
+  border-left: 5px solid var(--fg-dim); border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  transition: transform .12s;
+}
+.sec:not(.collapsed) > .sec-toggle .caret, .reflist li.folder.open > .caret { transform: rotate(90deg); }
+.sec.collapsed > .reflist { display: none; }
+#sidebar section.sec.collapsed { padding-bottom: 0; }
+.reflist li.folder { color: var(--fg-dim); gap: 5px; }
+.reflist li.folder .label { color: var(--fg); }
+.reflist li.folder.has-head:not(.open) .label { color: var(--accent2); }
+.folder-icon { font-size: 11px; flex: 0 0 auto; }
