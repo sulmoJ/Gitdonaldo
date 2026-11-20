@@ -99,8 +99,10 @@ function layout(commits) {
 
 const laneX = (k) => PAD + k * LANE_W;
 
-function drawGraph(rows, laneCount, refHashes = new Set()) {
+/** focus: Set of commit hashes to keep bright (null = no focus, everything bright). */
+function drawGraph(rows, laneCount, refHashes = new Set(), focus = null) {
   const svg = $('graph');
+  const dim = (on) => (focus && on ? ' class="dim"' : '');
   const width = PAD * 2 + laneCount * LANE_W;
   const height = rows.length * ROW_H + ROW_H;
   svg.setAttribute('width', width);
@@ -119,11 +121,12 @@ function drawGraph(rows, laneCount, refHashes = new Set()) {
       if (!pp) continue;
       const x2 = laneX(pp.lane), y2 = yOf(pp.i);
       const color = laneColor(Math.max(r.lane, pp.lane));
+      const d = dim(!(focus && focus.has(r.commit.hash) && focus.has(ph)));
       if (x1 === x2) {
-        out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="2"/>`;
+        out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="2"${d}/>`;
       } else {
         const my = y1 + ROW_H * 0.5;
-        out += `<path d="M${x1},${y1} C${x1},${my} ${x2},${y2 - ROW_H * 0.5} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="2"/>`;
+        out += `<path d="M${x1},${y1} C${x1},${my} ${x2},${y2 - ROW_H * 0.5} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="2"${d}/>`;
       }
     }
   }
@@ -132,12 +135,12 @@ function drawGraph(rows, laneCount, refHashes = new Set()) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     if (!refHashes.has(r.commit.hash)) continue;
-    out += `<line x1="0" y1="${yOf(i)}" x2="${laneX(r.lane) - NODE_R - 2}" y2="${yOf(i)}" stroke="${laneColor(r.lane)}" stroke-opacity=".45" stroke-width="1" stroke-dasharray="2 3"/>`;
+    out += `<line x1="0" y1="${yOf(i)}" x2="${laneX(r.lane) - NODE_R - 2}" y2="${yOf(i)}" stroke="${laneColor(r.lane)}" stroke-opacity=".45" stroke-width="1" stroke-dasharray="2 3"${dim(focus && !focus.has(r.commit.hash))}/>`;
   }
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    out += `<circle cx="${laneX(r.lane)}" cy="${yOf(i)}" r="${NODE_R}" fill="${laneColor(r.lane)}" stroke="#15171c" stroke-width="2"/>`;
+    out += `<circle cx="${laneX(r.lane)}" cy="${yOf(i)}" r="${NODE_R}" fill="${laneColor(r.lane)}" stroke="#15171c" stroke-width="2"${dim(focus && !focus.has(r.commit.hash))}/>`;
   }
   svg.innerHTML = out;
   $('refColSplit').style.height = Math.max(height, $('graphScroll').clientHeight) + 'px';
@@ -240,7 +243,7 @@ function openDialog({ title, message, details, fields = [], okLabel = '확인', 
 
   return new Promise((resolve) => {
     const onKey = (e) => {
-      if (e.key === 'Escape') finish(null);
+      if (e.key === 'Escape') { e.stopPropagation(); finish(null); }
       if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !ok.disabled) { e.preventDefault(); submit(); }
     };
     function finish(v) {
@@ -345,7 +348,11 @@ function openMenu(x, y, items) {
 }
 function hideMenu() { $('ctxMenu').hidden = true; }
 document.addEventListener('click', (e) => { if (!$('ctxMenu').contains(e.target)) hideMenu(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('ctxMenu').hidden) hideMenu();
+  else if (state.focusRef && !closeModal) clearFocus();
+});
 window.addEventListener('blur', hideMenu);
 
 const currentBranch = () => (state.repo && state.repo.currentBranch !== '(detached)' ? state.repo.currentBranch : null);
@@ -572,6 +579,48 @@ function dropMenu(src, dst) {
   return items;
 }
 
+// ---- branch focus: dim everything not reachable from the selected ref ---------------------
+
+/** Commits reachable from the focused ref within the loaded history, or null when no focus. */
+function focusSet() {
+  const ref = state.focusRef && state.refs.find((r) => r.refname === state.focusRef);
+  if (!ref) return null;
+  const parents = new Map(state.commits.map((c) => [c.hash, c.parents]));
+  const start = ref.target || ref.oid;
+  if (!parents.has(start)) return null;
+  const seen = new Set([start]);
+  const stack = [start];
+  while (stack.length) {
+    for (const p of parents.get(stack.pop()) || []) if (parents.has(p) && !seen.has(p)) { seen.add(p); stack.push(p); }
+  }
+  return seen;
+}
+
+/** Re-apply focus to rows, graph, ref chips and the focus bar. redraw=false when load() just drew the graph. */
+function applyFocus(redraw = true) {
+  const set = focusSet();
+  if (redraw && state.graph) drawGraph(state.graph.rows, state.graph.laneCount, state.graph.refHashes, set);
+  $('graphpane').classList.toggle('focusing', Boolean(set));
+  for (const li of document.querySelectorAll('#commitList li')) li.classList.toggle('dim', Boolean(set) && !set.has(li.dataset.hash));
+  for (const n of document.querySelectorAll('[data-refname]')) n.classList.toggle('focused', Boolean(set) && n.dataset.refname === state.focusRef);
+  const bar = $('focusBar');
+  bar.hidden = !set;
+  if (set) {
+    const ref = state.refs.find((r) => r.refname === state.focusRef);
+    $('focusText').textContent = `${ref.type === 'tag' ? '🏷 ' : ''}${ref.short} 기준 강조 · 커밋 ${set.size}개 (불러온 ${state.commits.length}개 중)`;
+  }
+}
+
+function toggleFocus(ref) {
+  state.focusRef = state.focusRef === ref.refname ? null : ref.refname;
+  applyFocus();
+}
+
+function clearFocus() {
+  state.focusRef = null;
+  applyFocus();
+}
+
 // ---- commit list & detail ----------------------------------------------------------------
 
 function refsByCommit(refs) {
@@ -591,6 +640,7 @@ function refChip(ref) {
   const chip = el('span', 'c-chip ' + (ref.isHead ? 'head' : ref.type), ref.type === 'tag' ? '🏷 ' + ref.short : ref.short);
   chip.title = `${ref.refname}\n드래그해서 다른 브랜치/태그에 놓기 · 더블클릭: 체크아웃 · 우클릭: 메뉴`;
   chip.addEventListener('contextmenu', (e) => { e.stopPropagation(); refMenu(e, ref); });
+  chip.addEventListener('click', () => toggleFocus(ref)); // bubbles on to the row: selects the commit too
   chip.addEventListener('dblclick', (e) => { e.stopPropagation(); if (ref.type !== 'tag' && !ref.isHead) checkout(ref.short); });
   makeRefDraggable(chip, ref);
   return chip;
@@ -751,8 +801,10 @@ function refRow(r, name, depth) {
   li.addEventListener('click', () => {
     const target = r.target || r.oid;
     const row = document.querySelector(`#commitList li[data-hash="${target}"]`);
-    if (row) { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); row.click(); }
-    else toast(`${r.short}의 커밋은 불러온 ${state.commits.length}개 밖에 있습니다.`, 'warn');
+    if (!row) { toast(`${r.short}의 커밋은 불러온 ${state.commits.length}개 밖에 있습니다.`, 'warn'); return; }
+    toggleFocus(r);
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    row.click();
   });
   li.addEventListener('dblclick', () => { if (r.type !== 'tag' && !r.isHead) checkout(r.short); });
   li.addEventListener('contextmenu', (e) => refMenu(e, r));
@@ -929,9 +981,12 @@ async function load() {
     renderStatusSummary(status);
     const { rows, laneCount } = layout(commits);
     const refHashes = new Set(refs.filter(isListedRef).map((r) => r.target || r.oid));
-    const gw = drawGraph(rows, laneCount, refHashes);
+    state.graph = { rows, laneCount, refHashes };
+    if (state.focusRef && !refs.some((r) => r.refname === state.focusRef)) state.focusRef = null;
+    const gw = drawGraph(rows, laneCount, refHashes, focusSet());
     renderList(rows, gw, refs);
     renderRefs(refs);
+    applyFocus(false);
     renderStashes(stashes);
     renderWorkArea();
     renderOpBanner();
@@ -951,6 +1006,8 @@ async function load() {
     Object.assign(state, { repo: null, status: null, opState: null, aheadBehind: null, stashes: [] });
     $('commitList').innerHTML = '';
     $('graph').innerHTML = '';
+    state.focusRef = null;
+    applyFocus(false);
     for (const id of ['localRefs', 'remoteRefs', 'tagRefs', 'stashList']) $(id).innerHTML = '';
     clearDetail();
     renderWorkArea();
@@ -1039,6 +1096,7 @@ for (const id of ['graphScroll', 'sidebar', 'detail', 'unstagedList', 'stagedLis
 }
 
 $('refreshBtn').addEventListener('click', load);
+$('focusClearBtn').addEventListener('click', clearFocus);
 async function openRepoDialog() {
   const picked = await desktop.selectRepo();
   if (picked) { state.repoPath = picked; load(); }

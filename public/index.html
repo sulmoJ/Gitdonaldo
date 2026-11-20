@@ -58,6 +58,10 @@
     <div class="splitter col" data-split="sidebar" title="드래그: 폭 조절 · 더블클릭: 기본값"></div>
 
     <section id="graphpane">
+      <div id="focusBar" class="focus-bar" hidden>
+        <span class="focus-dot"></span><span id="focusText"></span>
+        <button id="focusClearBtn" class="btn small" title="강조 해제 (Esc)">해제 ✕</button>
+      </div>
       <div id="graphScroll">
         <div id="refColSplit" class="splitter refcol" data-split="refcol" title="드래그: 브랜치/태그 컬럼 폭 조절 · 더블클릭: 기본값"></div>
         <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>

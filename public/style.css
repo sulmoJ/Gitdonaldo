@@ -333,3 +333,18 @@ body.resizing.row-resize, body.resizing.row-resize * { cursor: row-resize !impor
 @container (max-width: 760px) { .c-author { display: none; } }
 @container (max-width: 560px) { .c-date { display: none; } }
 .wa-col-actions { flex-wrap: wrap; }
+
+/* branch focus: commits not reachable from the selected ref fade out */
+#graph .dim { opacity: .18; }
+#commitList li.dim > .c-subject, #commitList li.dim > .c-author, #commitList li.dim > .c-date,
+#commitList li.dim > .c-hash, #commitList li.dim .c-refs { opacity: .32; transition: opacity .12s; }
+#commitList li.dim:hover > .c-subject, #commitList li.dim:hover > .c-author, #commitList li.dim:hover > .c-date,
+#commitList li.dim:hover > .c-hash, #commitList li.dim:hover .c-refs { opacity: .75; }
+.c-chip.focused { box-shadow: 0 0 0 2px var(--accent); }
+.reflist li.focused { background: rgba(70,166,255,.16); box-shadow: inset 2px 0 0 var(--accent); }
+.focus-bar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 12px; font-size: 12px;
+  background: rgba(70,166,255,.10); border-bottom: 1px solid rgba(70,166,255,.35); color: #b9d9ff;
+}
+.focus-bar #focusText { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focus-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
