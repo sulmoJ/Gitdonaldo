@@ -29,7 +29,7 @@ npm run dist         # macOS dmg (arm64, x64) → dist/  ※ macOS에서 실행
 
 ## 출시
 
-`package.json` 버전과 같은 태그(`v0.2.0` 등)를 push하면 CI가 dmg를 빌드해 GitHub Release에 올린다. 자세한 내용은 [packaging](./feature-spec/00-overview/packaging.md).
+`package.json` 버전과 같은 태그(`v0.2.1` 등)를 push하면 CI가 dmg를 빌드해 GitHub Release에 올린다. 자세한 내용은 [packaging](./feature-spec/00-overview/packaging.md).
 
 ## 브라우저 모드 (개발용)
 

@@ -84,8 +84,8 @@ hardened runtime을 끈 이유: ad-hoc 서명과 hardened runtime을 같이 쓰�
 1. `package.json`의 `version`을 올리고 master에 머지
 2. 같은 버전으로 태그를 만들어 push
    ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
+   git tag v0.2.1
+   git push origin v0.2.1
    ```
 3. CI가 끝나면 GitHub Releases에 dmg 2개가 올라간다. 태그와 버전이 다르면 release 잡이 실패한다.
 
