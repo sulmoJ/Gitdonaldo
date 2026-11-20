@@ -41,7 +41,7 @@
 ## 기술 제약
 
 - 데스크톱 앱: **macOS**(Apple Silicon, Intel). Node.js 불필요. Windows·Linux는 출시 대상 아님
-- 브라우저 모드·개발: Node.js 18 이상 (`package.json` `engines`)
+- 브라우저 모드·개발: Node.js 22 이상(CI·개발 기준 Node 26 LTS, `.nvmrc`) (`package.json` `engines`)
 - 시스템 PATH에 `git` 실행 파일
 - 브라우저 모드: `fetch`, `URL`, ES2020(옵셔널 체이닝)을 지원하는 최신 브라우저
 - 라이선스: MIT

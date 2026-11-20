@@ -1,7 +1,7 @@
 {
   "name": "gitdonaldo",
   "productName": "Gitdonaldo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Minimal git client desktop app for macOS (Electron + system git)",
   "author": "Gitdonaldo contributors",
   "main": "electron/main.js",
@@ -18,7 +18,7 @@
     "dist:linux": "electron-builder --linux --publish never"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "license": "MIT",
   "devDependencies": {

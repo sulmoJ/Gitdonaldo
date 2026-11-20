@@ -75,6 +75,7 @@ hardened runtime을 끈 이유: ad-hoc 서명과 hardened runtime을 같이 쓰�
 | `release` | ubuntu-latest | 태그가 `package.json` 버전과 같은지 확인 → dmg 2개를 첨부해 GitHub Release 생성(릴리스 노트 자동 생성) |
 
 - 패키지된 x64 앱은 빌드와 번들 검사만 한다. Apple Silicon 러너에서는 실행 E2E를 돌리지 않는다.
+- CI의 Node 버전은 저장소 루트 `.nvmrc`(Node 26 LTS)를 따른다. 액션은 Node 24 런타임 버전(checkout·setup-node·upload-artifact v7, download-artifact v8)을 쓴다.
 - 워크플로 기본 권한은 `contents: read`, release 잡만 `contents: write`.
 - PR에서는 같은 브랜치의 이전 실행을 취소한다.
 
@@ -83,8 +84,8 @@ hardened runtime을 끈 이유: ad-hoc 서명과 hardened runtime을 같이 쓰�
 1. `package.json`의 `version`을 올리고 master에 머지
 2. 같은 버전으로 태그를 만들어 push
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v0.1.1
+   git push origin v0.1.1
    ```
 3. CI가 끝나면 GitHub Releases에 dmg 2개가 올라간다. 태그와 버전이 다르면 release 잡이 실패한다.
 

@@ -1,6 +1,6 @@
 # Gitdonaldo Feature Spec
 
-Gitdonaldo의 현재 구현(v0.1.0, Electron 데스크톱 앱 포함) 기준 기능 명세서다.
+Gitdonaldo의 현재 구현(v0.1.1, Electron 데스크톱 앱 포함) 기준 기능 명세서다.
 00~05는 코드에 실제로 구현된 동작만 적는다. 구현과 문서가 어긋나거나 아직 없는 기능은 [05-quality](./05-quality/)에, 확정된 다음 구현 방향은 [06-roadmap](./06-roadmap/)에 따로 모았다.
 
 ## 폴더 구성 기준
