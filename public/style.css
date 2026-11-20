@@ -98,13 +98,13 @@ body {
 }
 .c-refs { display: flex; gap: 4px; align-items: center; min-width: 0; max-width: 100%; padding-right: 6px; }
 .c-refs .extra { display: none; }
-.c-refcol:hover .c-refs, body.ref-dragging .c-refcol:has(.drop-over) .c-refs {
+.c-refcol:hover .c-refs, body.ref-dragging .c-refcol.drag-open .c-refs {
   position: absolute; left: 4px; top: 2px; z-index: 5; flex-wrap: wrap; max-width: 380px; width: max-content;
   padding: 3px 5px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0,0,0,.4);
 }
-.c-refcol:hover .c-refs .extra, body.ref-dragging .c-refcol:has(.drop-over) .extra { display: inline-block; }
-.c-refcol:hover .c-more, body.ref-dragging .c-refcol:has(.drop-over) .c-more { display: none; }
+.c-refcol:hover .c-refs .extra, body.ref-dragging .c-refcol.drag-open .extra { display: inline-block; }
+.c-refcol:hover .c-more, body.ref-dragging .c-refcol.drag-open .c-more { display: none; }
 .c-more { font-size: 10px; color: var(--fg-dim); background: var(--bg3); border-radius: 9px; padding: 0 5px; flex: 0 0 auto; }
 .c-chip {
   font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600;

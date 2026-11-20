@@ -499,7 +499,7 @@ function makeRefDraggable(node, ref) {
   node.addEventListener('dragend', () => {
     dragRef = null;
     document.body.classList.remove('ref-dragging');
-    document.querySelectorAll('.drop-over').forEach((n) => n.classList.remove('drop-over'));
+    document.querySelectorAll('.drop-over, .drag-open').forEach((n) => n.classList.remove('drop-over', 'drag-open'));
   });
   const accepts = () => dragRef && dragRef.refname !== ref.refname;
   node.addEventListener('dragover', (e) => {
@@ -518,6 +518,24 @@ function makeRefDraggable(node, ref) {
     dragRef = null;
     openMenu(e.clientX, e.clientY, dropMenu(src, ref));
   });
+}
+
+/**
+ * A ref cell with several refs shows only the first chip until hovered, but :hover does not
+ * update during an HTML5 drag. Keep the cell expanded while a ref is dragged anywhere over it
+ * (including the floating panel), so the hidden chips can be dropped on. dragover keeps firing
+ * while the pointer is inside, so the cell closes shortly after the pointer leaves or drops.
+ */
+function keepOpenWhileDragging(col) {
+  let timer = null;
+  const close = () => { clearTimeout(timer); timer = null; col.classList.remove('drag-open'); };
+  col.addEventListener('dragover', () => {
+    if (!dragRef) return;
+    col.classList.add('drag-open');
+    clearTimeout(timer);
+    timer = setTimeout(close, 250);
+  });
+  col.addEventListener('drop', close);
 }
 
 const refLabel = (r) => (r.type === 'tag' ? `🏷 ${r.short}` : r.short);
@@ -658,8 +676,9 @@ function renderList(rows, graphWidth, refs) {
     if (state.repo && c.hash === state.repo.head) li.classList.add('is-head');
 
     // Branch/tag column (left of the graph). First ref shown, the rest on hover.
-    const col = el('span', 'c-refcol');
     const here = (rmap.get(c.hash) || []).slice().sort((a, b) => refRank(a) - refRank(b));
+    const col = el('span', 'c-refcol');
+    if (here.length > 1) keepOpenWhileDragging(col);
     if (here.length) {
       const chips = el('span', 'c-refs');
       here.forEach((ref, k) => {
