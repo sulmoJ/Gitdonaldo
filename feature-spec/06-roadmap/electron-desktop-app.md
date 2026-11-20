@@ -169,4 +169,4 @@ Gitdonaldo/
 | 테스트 | — | 서버 단위 테스트 11개, Electron E2E 16개 항목(`npm run test:e2e`). E2E용 `playwright-core`를 devDependency로 추가 |
 | 테스트 격리 | — | `GITDONALDO_USER_DATA` 환경변수로 userData 위치 변경 |
 | 패키지 메타데이터 | — | `author`, `desktopName`, `publish: null` 추가 |
-| Electron 버전 | — | `electron` 45.3.4, `electron-builder` 26.18.0 (정확한 버전 고정) |
+| Electron 버전 | — | `electron` 45.4.1, `electron-builder` 26.18.0 (정확한 버전 고정) |
