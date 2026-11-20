@@ -53,7 +53,7 @@ body {
 .repoinfo .error { color: #f0768b; }
 .repoinfo .hint { color: var(--accent); }
 
-#layout { flex: 1 1 auto; display: grid; grid-template-columns: var(--sidebar-w, 230px) 0 minmax(0, 1fr) 0 var(--detail-w, 320px); min-height: 0; }
+#layout { flex: 1 1 auto; display: grid; grid-template-columns: var(--sidebar-w, min(230px, 22vw)) 0 minmax(0, 1fr) 0 var(--detail-w, min(320px, 28vw)); min-height: 0; }
 #sidebar { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 6px 0 20px; }
 #sidebar section { padding: 8px 12px 4px; }
 #sidebar h3 { margin: 10px 0 6px; font-size: 10.5px; letter-spacing: .6px; color: var(--fg-dim); font-weight: 700; display: flex; align-items: center; gap: 6px; }
@@ -80,7 +80,7 @@ body {
 .status .dirty { color: #f0b457; }
 
 #graphpane { overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
-#graphScroll { position: relative; overflow: auto; width: 100%; flex: 1 1 auto; min-height: 0; }
+#graphScroll { position: relative; overflow: auto; width: 100%; flex: 1 1 auto; min-height: 0; container-type: inline-size; }
 #graph { position: absolute; top: 0; left: var(--refcol-w, 168px); pointer-events: none; z-index: 1; }
 #commitList { list-style: none; margin: 0; padding: 0; position: relative; }
 #commitList li {
@@ -119,7 +119,7 @@ body.ref-dragging .c-chip, body.ref-dragging .reflist li[draggable] { outline: 1
 .c-chip.remote { background: rgba(160,160,180,.12); color: #b9c0cf; border-color: rgba(160,160,180,.3); }
 .c-chip.tag { background: rgba(240,180,87,.14); color: #f0b457; border-color: rgba(240,180,87,.4); }
 .c-chip.head { background: rgba(110,231,183,.16); color: var(--accent2); border-color: rgba(110,231,183,.5); }
-.c-subject { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-subject { flex: 1 1 auto; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .c-author { color: var(--fg-dim); font-size: 11px; width: 120px; flex: 0 0 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .c-date { color: var(--fg-dim); font-size: 11px; width: 92px; flex: 0 0 auto; text-align: right; }
 .c-hash { color: var(--fg-dim); font-size: 11px; font-family: "SF Mono", ui-monospace, Menlo, monospace; width: 64px; flex: 0 0 auto; text-align: right; }
@@ -190,7 +190,12 @@ body.busy .tb, body.busy .wa-grid button { cursor: progress; }
 }
 .wa-head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
 .wa-head #waCloseBtn { margin-left: auto; }
-.wa-grid { flex: 1 1 auto; display: grid; grid-template-columns: var(--wa-left-w, minmax(0, 1fr)) 0 minmax(0, 1fr) 0 var(--wa-commit-w, 300px); min-height: 0; }
+/* File columns never collapse below 150px; the commit column gives way first (down to 180px)
+   in a narrow window, and the grid scrolls sideways only as a last resort. */
+.wa-grid {
+  flex: 1 1 auto; display: grid; min-height: 0; overflow-x: auto;
+  grid-template-columns: minmax(150px, var(--wa-left-w, 1fr)) 0 minmax(150px, 1fr) 0 minmax(180px, min(var(--wa-commit-w, 300px), 40%));
+}
 .wa-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; border-right: 1px solid var(--line); }
 .wa-col-head {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
@@ -205,7 +210,7 @@ body.busy .tb, body.busy .wa-grid button { cursor: progress; }
 .filelist li.empty-row { color: var(--fg-dim); font-style: italic; justify-content: center; padding: 14px 0; }
 .filelist li.empty-row:hover { background: none; }
 .filelist li.conflicted .fname { color: var(--danger); }
-.fname { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.fname { flex: 1 1 auto; min-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .facts { display: flex; gap: 2px; visibility: hidden; }
 .filelist li:hover .facts { visibility: visible; }
 .xy {
@@ -324,3 +329,7 @@ body.resizing.col-resize, body.resizing.col-resize * { cursor: col-resize !impor
 body.resizing.row-resize, body.resizing.row-resize * { cursor: row-resize !important; }
 .wa-col-head { flex-wrap: wrap; row-gap: 3px; }
 .wa-commit { min-width: 0; }
+/* narrow graph pane: drop secondary columns before the commit subject gets squeezed out */
+@container (max-width: 760px) { .c-author { display: none; } }
+@container (max-width: 560px) { .c-date { display: none; } }
+.wa-col-actions { flex-wrap: wrap; }

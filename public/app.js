@@ -974,10 +974,10 @@ const SPLITS = {
   detail: { v: '--detail-w', axis: 'x', sign: -1, el: () => $('detail'), min: () => 200, max: () => Math.min(720, layoutW() - $('sidebar').offsetWidth - 320) },
   refcol: { v: '--refcol-w', axis: 'x', sign: 1, el: () => document.querySelector('.c-refcol') || { offsetWidth: REFCOL_W }, min: () => 60, max: () => 420 },
   work: { v: '--work-h', axis: 'y', sign: -1, el: () => $('workArea'), min: () => 120, max: () => $('graphpane').clientHeight - 80 },
-  waLeft: { v: '--wa-left-w', axis: 'x', sign: 1, el: () => document.querySelector('.wa-col'), min: () => 180,
-    max: () => document.querySelector('.wa-grid').clientWidth - document.querySelector('.wa-commit').offsetWidth - 180 },
-  waCommit: { v: '--wa-commit-w', axis: 'x', sign: -1, el: () => document.querySelector('.wa-commit'), min: () => 200,
-    max: () => document.querySelector('.wa-grid').clientWidth - document.querySelector('.wa-col').offsetWidth - 180 },
+  waLeft: { v: '--wa-left-w', axis: 'x', sign: 1, el: () => document.querySelector('.wa-col'), min: () => 150,
+    max: () => document.querySelector('.wa-grid').clientWidth - document.querySelector('.wa-commit').offsetWidth - 150 },
+  waCommit: { v: '--wa-commit-w', axis: 'x', sign: -1, el: () => document.querySelector('.wa-commit'), min: () => 180,
+    max: () => document.querySelector('.wa-grid').clientWidth - document.querySelector('.wa-col').offsetWidth - 150 },
 };
 const paneSizes = (() => { try { return JSON.parse(localStorage.getItem(PANE_KEY)) || {}; } catch { return {}; } })();
 const savePanes = () => { try { localStorage.setItem(PANE_KEY, JSON.stringify(paneSizes)); } catch { /* storage unavailable */ } };
